@@ -92,7 +92,7 @@ else
 endif
 
 emulate/android: ## Emulate Android device
-	flutter emulators --launch apple_ios_simulator
+	flutter emulators --launch Pixel_6
 
 emulate/ios: ## Emulate iOS device
 	flutter emulators --launch apple_ios_simulator
@@ -107,9 +107,11 @@ else
 endif
 
 run/android: emulate/android ## Run Android
-	echo "Running Android app..."
+	sleep 10
+	flutter run
 
 run/ios: emulate/ios ## Run iOS
+	sleep 10
 	flutter run 
 
 test: test/unit ## Run tests
