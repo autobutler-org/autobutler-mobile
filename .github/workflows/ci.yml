@@ -21,9 +21,9 @@ jobs:
       - name: Get Dependencies
         run: |
           make deps
-      - name: Build
+      - name: Build Android
         run: |
-          make build
+          make build/android
       - name: Run unit tests
         run: |
           make test/unit
