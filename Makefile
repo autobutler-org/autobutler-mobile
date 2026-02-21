@@ -12,7 +12,7 @@ ifneq (,$(wildcard ./.env))
 endif
 
 UNAME_S := $(shell uname -s)
-FLUTTER_VERSION := $(shell grep -Eo 'sdk: \^(.+)' pubspec.yaml | sed -E 's/^sdk: \^(.+)$$/\1/')
+FLUTTER_VERSION := 3.41.2
 
 clean:
 	flutter pub clean
@@ -50,7 +50,19 @@ else
 endif
 
 build: ## Build mobile app
-	flutter pub build
+ifeq ($(UNAME_S),Linux)
+	make build/android
+else ifeq ($(UNAME_S),Darwin)
+	make build/ios
+else
+	$(error "Unsupported OS: $(UNAME_S)")
+endif
+
+build/android: ## Build Android app
+	flutter build apk --debug
+
+build/ios: ## Build iOS app
+	flutter build ios --debug --no-codesign
 
 run: ## Run mobile app
 	flutter run
@@ -58,7 +70,7 @@ run: ## Run mobile app
 test: test/unit ## Run tests
 
 test/unit: ## Run unit tests
-	flutter pub test
+	flutter test
 
 format: format/dart ## Format code
 
@@ -71,7 +83,7 @@ check/format/dart: ## Check code formatting
 	dart format --set-exit-if-changed .
 
 check/lint/dart: ## Lint Dart code
-	flutter pub analyze
+	flutter analyze
 
 deps: ## Install dependencies
 	flutter pub get
