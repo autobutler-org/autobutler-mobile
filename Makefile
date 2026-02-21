@@ -12,7 +12,7 @@ ifneq (,$(wildcard ./.env))
 endif
 
 UNAME_S := $(shell uname -s)
-FLUTTER_VERSION := 3.41.2
+FLUTTER_VERSION=$(shell grep -Eo 'flutter: (.+)' pubspec.yaml | sed -E 's/^flutter: (.+)$$/\1/')
 
 clean:
 	flutter pub clean
@@ -20,6 +20,7 @@ clean:
 setup: setup/flutter ## Setup development environment
 
 setup/flutter: ## Install go tools
+	echo $(FLUTTER_VERSION)
 	if [ -d "${HOME}/flutter" ]; then
 		echo "Flutter already installed at ${HOME}/flutter"
 		exit 0
