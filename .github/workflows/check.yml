@@ -14,10 +14,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
       - name: Set up Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          channel: stable
-          flutter-version-file: pubspec.yaml
+        uses: ./.github/actions/setup-flutter
       - name: Check formatting
         run: |
           make check/format/dart
