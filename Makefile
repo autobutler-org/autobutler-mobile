@@ -17,7 +17,7 @@ clean:
 setup: setup/flutter ## Setup development environment
 
 setup/flutter: ## Install go tools
-	echo "Setting up Flutter environment..."
+	echo "Flutter suggests you use VSCode for this: https://docs.flutter.dev/install/quick#install"
 
 build: ## Build mobile app
 	echo "Building mobile app..."
