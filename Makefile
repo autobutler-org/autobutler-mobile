@@ -11,16 +11,49 @@ ifneq (,$(wildcard ./.env))
     export
 endif
 
+UNAME_S := $(shell uname -s)
+FLUTTER_VERSION := $(shell grep -Eo 'sdk: \^(.+)' pubspec.yaml | sed -E 's/^sdk: \^(.+)$$/\1/')
+
 clean:
 	flutter pub clean
 
 setup: setup/flutter ## Setup development environment
 
 setup/flutter: ## Install go tools
-	echo "Flutter suggests you use VSCode for this: https://docs.flutter.dev/install/quick#install"
+	if [ -d "${HOME}/flutter" ]; then
+		echo "Flutter already installed at ${HOME}/flutter"
+		exit 0
+	fi
+	if [ -z "$(FLUTTER_VERSION)" ]; then
+		echo "Error: Could not determine Flutter version from pubspec.yaml"
+		exit 1
+	fi
+	echo "Installing Flutter version $(FLUTTER_VERSION)"
+ifeq ($(UNAME_S),Linux)
+	sudo apt-get update -y
+	sudo apt-get install -y \
+		curl \
+		git \
+		unzip \
+		xz-utils \
+		zip \
+		libglu1-mesa
+	curl -L "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_$(FLUTTER_VERSION)-stable.tar.xz" | tar -xf -C "${HOME}"
+else ifeq ($(UNAME_S),Darwin)
+	rm -f flutter.zip
+	set -v
+	curl --fail -L "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_arm64_$(FLUTTER_VERSION)-stable.zip" -o flutter.zip
+	unzip flutter.zip -d "${HOME}"
+	rm -f flutter.zip
+else
+	$(error "Unsupported OS: $(UNAME_S)")
+endif
 
 build: ## Build mobile app
 	flutter pub build
+
+run: ## Run mobile app
+	flutter run
 
 test: test/unit ## Run tests
 
