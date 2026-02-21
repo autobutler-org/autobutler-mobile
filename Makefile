@@ -20,7 +20,6 @@ clean:
 setup: setup/flutter ## Setup development environment
 
 setup/flutter: ## Install go tools
-	echo $(FLUTTER_VERSION)
 	if [ -d "${HOME}/flutter" ]; then
 		echo "Flutter already installed at ${HOME}/flutter"
 		exit 0
