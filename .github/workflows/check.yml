@@ -18,6 +18,9 @@ jobs:
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
-      - name: Format code
+      - name: Check formatting
         run: |
-          make check
+          make check/format/dart
+      - name: Lint
+        run: |
+          make check/lint/dart
