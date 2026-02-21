@@ -112,7 +112,7 @@ run/android: emulate/android ## Run Android
 
 run/ios: emulate/ios ## Run iOS
 	sleep 10
-	flutter run 
+	flutter run
 
 test: test/unit ## Run tests
 
