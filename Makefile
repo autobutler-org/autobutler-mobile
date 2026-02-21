@@ -82,8 +82,35 @@ build/android: ## Build Android app
 build/ios: ## Build iOS app
 	flutter build ios --debug --no-codesign
 
+emulate: ## Emulate mobile device
+ifeq ($(UNAME_S),Linux)
+	make emulate/android
+else ifeq ($(UNAME_S),Darwin)
+	make emulate/ios
+else
+	$(error "Unsupported OS: $(UNAME_S)")
+endif
+
+emulate/android: ## Emulate Android device
+	flutter emulators --launch apple_ios_simulator
+
+emulate/ios: ## Emulate iOS device
+	flutter emulators --launch apple_ios_simulator
+
 run: ## Run mobile app
-	flutter run
+ifeq ($(UNAME_S),Linux)
+	make run/android
+else ifeq ($(UNAME_S),Darwin)
+	make run/ios
+else
+	$(error "Unsupported OS: $(UNAME_S)")
+endif
+
+run/android: emulate/android ## Run Android
+	echo "Running Android app..."
+
+run/ios: emulate/ios ## Run iOS
+	flutter run 
 
 test: test/unit ## Run tests
 
