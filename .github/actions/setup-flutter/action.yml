@@ -3,11 +3,7 @@ runs:
   using: composite
   steps:
     - name: Install flutter SDK
-      shell: bash
-      run: |
-        make setup/flutter
-
-    - name: Fix PATH
-      shell: bash
-      run: |
-        echo "${HOME}/flutter/bin" >> ${GITHUB_PATH}
+      uses: subosito/flutter-action@v2
+      with:
+        channel: stable
+        flutter-version-file: pubspec.yaml
