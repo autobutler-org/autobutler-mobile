@@ -18,6 +18,9 @@ jobs:
         with:
           channel: stable
           flutter-version-file: pubspec.yaml
+      - name: Get Dependencies
+        run: |
+          make deps
       - name: Build
         run: |
           make build
