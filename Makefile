@@ -49,6 +49,24 @@ else
 	$(error "Unsupported OS: $(UNAME_S)")
 endif
 
+setup/cocoapods: ## Setup CocoaPods for iOS development
+ifeq ($(UNAME_S),Darwin)
+	brew install ruby
+	$$(brew --prefix)/opt/ruby/bin/gem install cocoapods
+else
+	$(error "CocoaPods setup is only supported on macOS")
+endif
+
+setup/ios: setup/cocoapods ## Setup iOS development environment
+ifeq ($(UNAME_S),Darwin)
+	sudo sh -c 'xcode-select -s /Applications/Xcode.app/Contents/Developer && xcodebuild -runFirstLaunch'
+	sudo xcodebuild -license
+	xcodebuild -downloadPlatform iOS
+	sudo softwareupdate --install-rosetta --agree-to-license
+else
+	$(error "iOS development environment setup is only supported on macOS")
+endif
+
 build: ## Build mobile app
 ifeq ($(UNAME_S),Linux)
 	make build/android
