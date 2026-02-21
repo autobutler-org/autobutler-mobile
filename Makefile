@@ -12,7 +12,7 @@ ifneq (,$(wildcard ./.env))
 endif
 
 clean:
-	echo "Cleaning build artifacts..."
+	flutter pub clean
 
 setup: setup/flutter ## Setup development environment
 
@@ -20,30 +20,28 @@ setup/flutter: ## Install go tools
 	echo "Flutter suggests you use VSCode for this: https://docs.flutter.dev/install/quick#install"
 
 build: ## Build mobile app
-	echo "Building mobile app..."
+	flutter pub build
 
-test: test/unit test/e2e
+test: test/unit ## Run tests
 
 test/unit: ## Run unit tests
-	echo "Running unit tests..."
-
-test/e2e:
-	echo "Running end-to-end tests..."
+	flutter pub test
 
 format: format/dart ## Format code
 
 format/dart: ## Format Dart code
-	echo "Formatting Dart code..."
+	dart format .
 
-check: check/dart ## Check code
+check: check/format/dart check/lint/dart ## Check code
 
-check/dart: ## Check Dart code
-	echo "Checking Dart code..."
+check/format/dart: ## Check code formatting
+	dart format --set-exit-if-changed .
 
-fix: fix/dart ## Fix code issues
+check/lint/dart: ## Lint Dart code
+	flutter pub analyze
 
-fix/dart: ## Fix Dart code issues
-	echo "Fixing Dart code issues..."
+deps: ## Install dependencies
+	flutter pub get
 
 env-%: ## Check for env var
 	if [ -z "$($*)" ]; then \
