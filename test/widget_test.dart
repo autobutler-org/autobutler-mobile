@@ -14,7 +14,7 @@ void main() {
     await tester.pumpWidget(const AutobutlerApp());
     await tester.pumpAndSettle();
 
-    expect(find.text('Photos'), findsOneWidget);
+    expect(find.text('Cirrus'), findsOneWidget);
     expect(find.text('Name'), findsOneWidget);
     expect(find.text('Device'), findsOneWidget);
     expect(find.text('Size'), findsOneWidget);

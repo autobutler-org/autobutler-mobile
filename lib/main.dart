@@ -55,6 +55,12 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     _filesFuture = CirrusService.getFiles(_currentPath);
   }
 
+  void _refreshFiles() {
+    setState(() {
+      _reloadFiles();
+    });
+  }
+
   Future<void> _handleUploadPressed() async {
     if (_isUploading) {
       return;
@@ -649,7 +655,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Photos'),
+        title: const Text('Cirrus'),
         actions: [
           IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
           IconButton(
@@ -676,6 +682,12 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                       : _handleCreateFolderPressed,
                   icon: const Icon(Icons.create_new_folder_outlined),
                   label: Text(_isCreatingFolder ? 'Creating...' : 'New Folder'),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: _refreshFiles,
+                  icon: const Icon(Icons.refresh_rounded),
+                  tooltip: 'Refresh files',
                 ),
               ],
             ),
