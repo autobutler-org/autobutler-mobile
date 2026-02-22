@@ -91,11 +91,14 @@ else
 	$(error "Unsupported OS: $(UNAME_S)")
 endif
 
+ANDROID_DEVICE_ID ?= Pixel_6
+IOS_DEVICE_ID ?= apple_ios_simulator
+
 emulate/android: ## Emulate Android device
-	flutter emulators --launch Pixel_6
+	flutter emulators --launch $(ANDROID_DEVICE_ID)
 
 emulate/ios: ## Emulate iOS device
-	flutter emulators --launch apple_ios_simulator
+	flutter emulators --launch $(IOS_DEVICE_ID)
 
 run: ## Run mobile app
 ifeq ($(UNAME_S),Linux)
@@ -106,13 +109,11 @@ else
 	$(error "Unsupported OS: $(UNAME_S)")
 endif
 
-run/android: emulate/android ## Run Android
-	sleep 10
-	flutter run
+run/android: ## Run Android
+	flutter run --device-id $(ANDROID_DEVICE_ID)
 
-run/ios: emulate/ios ## Run iOS
-	sleep 10
-	flutter run
+run/ios: ## Run iOS
+	flutter run --device-id $(IOS_DEVICE_ID)
 
 test: test/unit ## Run tests
 
