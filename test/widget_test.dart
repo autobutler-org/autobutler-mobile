@@ -12,6 +12,7 @@ import 'package:autobutler/main.dart';
 void main() {
   testWidgets('renders file browser screen', (WidgetTester tester) async {
     await tester.pumpWidget(const AutobutlerApp());
+    await tester.pumpAndSettle();
 
     expect(find.text('Photos'), findsOneWidget);
     expect(find.text('Name'), findsOneWidget);

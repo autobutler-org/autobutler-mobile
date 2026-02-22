@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 
+import 'package:autobutler/models/cirrus_file_node.dart';
+import 'package:autobutler/services/cirrus_service.dart';
+
 void main() {
   runApp(const AutobutlerApp());
 }
@@ -25,87 +28,21 @@ class AutobutlerApp extends StatelessWidget {
   }
 }
 
-enum BrowserItemType { folder, image, archive }
+class FileBrowserPage extends StatefulWidget {
+  const FileBrowserPage({super.key});
 
-class FileBrowserItem {
-  const FileBrowserItem({
-    required this.name,
-    required this.device,
-    required this.size,
-    required this.type,
-  });
-
-  final String name;
-  final String device;
-  final String size;
-  final BrowserItemType type;
+  @override
+  State<FileBrowserPage> createState() => _FileBrowserPageState();
 }
 
-const mockFileBrowserItems = <FileBrowserItem>[
-  FileBrowserItem(
-    name: 'flipped_(1).jpg',
-    device: 'Data',
-    size: '6.2 MB',
-    type: BrowserItemType.image,
-  ),
-  FileBrowserItem(
-    name: 'flipped_(2).jpg',
-    device: 'Data',
-    size: '6.2 MB',
-    type: BrowserItemType.image,
-  ),
-  FileBrowserItem(
-    name: 'flipped_(3).jpg',
-    device: 'Data',
-    size: '6.2 MB',
-    type: BrowserItemType.image,
-  ),
-  FileBrowserItem(
-    name: 'flipped_(4).jpg',
-    device: 'Data',
-    size: '6.2 MB',
-    type: BrowserItemType.image,
-  ),
-  FileBrowserItem(
-    name: 'flipped_(5).jpg',
-    device: 'Data',
-    size: '6.2 MB',
-    type: BrowserItemType.image,
-  ),
-  FileBrowserItem(
-    name: 'flipped_(6).jpg',
-    device: 'Data',
-    size: '6.2 MB',
-    type: BrowserItemType.image,
-  ),
-  FileBrowserItem(
-    name: 'flipped_(7).jpg',
-    device: 'Data',
-    size: '6.2 MB',
-    type: BrowserItemType.image,
-  ),
-  FileBrowserItem(
-    name: 'flipped.jpg',
-    device: 'Data',
-    size: '6.2 MB',
-    type: BrowserItemType.image,
-  ),
-  FileBrowserItem(
-    name: 'Google_Data_autobutler.org@gmail.com_1769933022.zip',
-    device: 'Data',
-    size: '42.3 KB',
-    type: BrowserItemType.archive,
-  ),
-  FileBrowserItem(
-    name: 'project-assets',
-    device: 'Data',
-    size: '--',
-    type: BrowserItemType.folder,
-  ),
-];
+class _FileBrowserPageState extends State<FileBrowserPage> {
+  late final Future<List<CirrusFileNode>> _filesFuture;
 
-class FileBrowserPage extends StatelessWidget {
-  const FileBrowserPage({super.key});
+  @override
+  void initState() {
+    super.initState();
+    _filesFuture = CirrusService.getFiles('/cirrus');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -147,7 +84,7 @@ class FileBrowserPage extends StatelessWidget {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'cirrus / testfolder',
+                'cirrus',
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
@@ -172,29 +109,55 @@ class FileBrowserPage extends StatelessWidget {
             ),
           ),
           Expanded(
-            child: ListView.separated(
-              itemCount: mockFileBrowserItems.length,
-              separatorBuilder: (_, __) => Divider(
-                height: 1,
-                color: colors.outlineVariant.withOpacity(0.5),
-              ),
-              itemBuilder: (context, index) {
-                final item = mockFileBrowserItems[index];
-                return ListTile(
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 2,
+            child: FutureBuilder<List<CirrusFileNode>>(
+              future: _filesFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Unable to load files',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  );
+                }
+
+                final files = snapshot.data ?? const <CirrusFileNode>[];
+                if (files.isEmpty) {
+                  return const Center(child: Text('No files found'));
+                }
+
+                return ListView.separated(
+                  itemCount: files.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    color: colors.outlineVariant.withOpacity(0.5),
                   ),
-                  leading: Icon(_iconForType(item.type)),
-                  title: Row(
-                    children: [
-                      Expanded(flex: 5, child: Text(item.name)),
-                      Expanded(flex: 2, child: Text(item.device)),
-                      Expanded(flex: 2, child: Text(item.size)),
-                    ],
-                  ),
-                  trailing: const Icon(Icons.more_vert),
-                  onTap: () {},
+                  itemBuilder: (context, index) {
+                    final item = files[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 2,
+                      ),
+                      leading: Icon(_iconForNode(item)),
+                      title: Row(
+                        children: [
+                          Expanded(flex: 5, child: Text(item.name)),
+                          Expanded(flex: 2, child: Text(item.deviceName)),
+                          Expanded(
+                            flex: 2,
+                            child: Text(_formatSize(item.size, item.isDir)),
+                          ),
+                        ],
+                      ),
+                      trailing: const Icon(Icons.more_vert),
+                      onTap: () {},
+                    );
+                  },
                 );
               },
             ),
@@ -204,14 +167,44 @@ class FileBrowserPage extends StatelessWidget {
     );
   }
 
-  static IconData _iconForType(BrowserItemType type) {
-    switch (type) {
-      case BrowserItemType.folder:
-        return Icons.folder_outlined;
-      case BrowserItemType.image:
-        return Icons.image_outlined;
-      case BrowserItemType.archive:
-        return Icons.archive_outlined;
+  static IconData _iconForNode(CirrusFileNode node) {
+    if (node.isDir) {
+      return Icons.folder_outlined;
     }
+
+    final lowerName = node.name.toLowerCase();
+    if (lowerName.endsWith('.jpg') ||
+        lowerName.endsWith('.jpeg') ||
+        lowerName.endsWith('.png') ||
+        lowerName.endsWith('.gif') ||
+        lowerName.endsWith('.webp')) {
+      return Icons.image_outlined;
+    }
+
+    if (lowerName.endsWith('.zip') ||
+        lowerName.endsWith('.tar') ||
+        lowerName.endsWith('.gz') ||
+        lowerName.endsWith('.7z')) {
+      return Icons.archive_outlined;
+    }
+
+    return Icons.insert_drive_file_outlined;
+  }
+
+  static String _formatSize(int bytes, bool isDir) {
+    if (isDir) {
+      return '--';
+    }
+
+    if (bytes < 1024) {
+      return '$bytes B';
+    }
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }
