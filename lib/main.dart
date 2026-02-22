@@ -115,9 +115,11 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
             decoration: BoxDecoration(
               color: colors.surface,
               border: Border(
-                top: BorderSide(color: colors.outlineVariant.withOpacity(0.6)),
+                top: BorderSide(
+                  color: colors.outlineVariant.withValues(alpha: 0.6),
+                ),
                 bottom: BorderSide(
-                  color: colors.outlineVariant.withOpacity(0.6),
+                  color: colors.outlineVariant.withValues(alpha: 0.6),
                 ),
               ),
             ),
@@ -155,7 +157,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                   itemCount: files.length,
                   separatorBuilder: (_, _) => Divider(
                     height: 1,
-                    color: colors.outlineVariant.withOpacity(0.5),
+                    color: colors.outlineVariant.withValues(alpha: 0.5),
                   ),
                   itemBuilder: (context, index) {
                     final item = files[index];
