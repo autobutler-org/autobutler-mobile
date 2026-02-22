@@ -85,12 +85,22 @@ class CirrusService {
     String? newDeviceSerial,
   }) async {
     final endpointUri = Uri.parse(_apiBaseUrl).resolve('/api/v1/cirrus');
-    final body = jsonEncode(<String, String?>{
+    final requestBody = <String, String>{
       'oldFilePath': oldPath,
       'newFilePath': newPath,
-      'oldDeviceSerial': oldDeviceSerial,
-      'newDeviceSerial': newDeviceSerial,
-    });
+    };
+
+    final oldSerial = oldDeviceSerial?.trim() ?? '';
+    if (oldSerial.isNotEmpty) {
+      requestBody['oldDeviceSerial'] = oldSerial;
+    }
+
+    final newSerial = newDeviceSerial?.trim() ?? '';
+    if (newSerial.isNotEmpty) {
+      requestBody['newDeviceSerial'] = newSerial;
+    }
+
+    final body = jsonEncode(requestBody);
 
     final response = await http.put(
       endpointUri,

@@ -274,8 +274,11 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     }
 
     try {
+      final filePath = _toRootDir(
+        _joinPath(_currentPath, _trimTrailingSlashes(node.name)),
+      );
       final savedPath = await CirrusService.downloadFile(
-        node.fullPath,
+        filePath,
         serial: _serialOrNull(node),
         fileName: _trimTrailingSlashes(node.name),
       );
@@ -287,7 +290,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       final message = savedPath == null
           ? 'Download canceled'
           : 'Downloaded ${_trimTrailingSlashes(node.name)}';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
     } catch (_) {
       if (!mounted) {
         return;
@@ -299,16 +304,19 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _handleMoveRename(CirrusFileNode node) async {
-    final currentItemPath = _joinPath(_currentPath, _trimTrailingSlashes(node.name));
+    final currentItemPath = _joinPath(
+      _currentPath,
+      _trimTrailingSlashes(node.name),
+    );
     final targetInput = await _promptForMoveRenamePath();
     if (targetInput == null) {
       return;
     }
 
-    final oldPath = _toRootDir(currentItemPath);
+    final oldPath = currentItemPath;
     final targetPath = targetInput.startsWith('/')
-        ? _toRootDir(_normalizePath(targetInput))
-        : _toRootDir(_joinPath(_currentPath, targetInput));
+      ? _normalizePath(targetInput)
+      : _joinPath(_currentPath, targetInput);
 
     if (targetPath.isEmpty || targetPath == oldPath) {
       return;
@@ -399,7 +407,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                     placeholder: 'New name or path',
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) {
-                      Navigator.of(dialogContext).pop(pathController.text.trim());
+                      Navigator.of(
+                        dialogContext,
+                      ).pop(pathController.text.trim());
                     },
                   ),
                 ),
@@ -411,7 +421,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                   CupertinoDialogAction(
                     isDefaultAction: true,
                     onPressed: () {
-                      Navigator.of(dialogContext).pop(pathController.text.trim());
+                      Navigator.of(
+                        dialogContext,
+                      ).pop(pathController.text.trim());
                     },
                     child: const Text('Save'),
                   ),
@@ -442,7 +454,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                   ),
                   FilledButton(
                     onPressed: () {
-                      Navigator.of(dialogContext).pop(pathController.text.trim());
+                      Navigator.of(
+                        dialogContext,
+                      ).pop(pathController.text.trim());
                     },
                     child: const Text('Save'),
                   ),
@@ -775,7 +789,8 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                       ),
                       trailing: PopupMenuButton<_FileMenuAction>(
                         icon: const Icon(Icons.more_vert),
-                        onSelected: (action) => _handleFileMenuAction(item, action),
+                        onSelected: (action) =>
+                            _handleFileMenuAction(item, action),
                         itemBuilder: (context) => const [
                           PopupMenuItem<_FileMenuAction>(
                             value: _FileMenuAction.download,
