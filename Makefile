@@ -104,6 +104,11 @@ emulate/android: ## Emulate Android device
 emulate/ios: ## Emulate iOS device
 	flutter emulators --launch $(IOS_DEVICE_ID)
 
+generate: generate/icons ## Generate assets
+
+generate/icons: ## Generate app icons
+	dart run flutter_launcher_icons
+
 refresh: ## Refresh build manifest
 	flutter pub get
 
