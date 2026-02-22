@@ -58,10 +58,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       return;
     }
 
-    setState(() {
-      _currentPath = _joinPath(_currentPath, node.name);
-      _reloadFiles();
-    });
+    _setPath(_joinPath(_currentPath, node.name));
   }
 
   void _goUpOneLevel() {
@@ -69,8 +66,17 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       return;
     }
 
+    _setPath(_parentPath(_currentPath));
+  }
+
+  void _setPath(String path) {
+    final normalized = _normalizePath(path);
+    if (normalized == _currentPath) {
+      return;
+    }
+
     setState(() {
-      _currentPath = _parentPath(_currentPath);
+      _currentPath = normalized;
       _reloadFiles();
     });
   }
@@ -117,6 +123,48 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     return normalized.substring(0, lastSlash);
   }
 
+  List<Widget> _buildBreadcrumbs(BuildContext context) {
+    final style = Theme.of(context).textTheme.titleMedium;
+    if (_currentPath.isEmpty) {
+      return [Text('/', style: style)];
+    }
+
+    final segments = _currentPath.substring(1).split('/');
+    final children = <Widget>[Text('/', style: style)];
+
+    for (var i = 0; i < segments.length; i++) {
+      if (i > 0) {
+        children.add(Text('/', style: style));
+      }
+
+      final segment = segments[i];
+      final isLast = i == segments.length - 1;
+
+      if (isLast) {
+        children.add(Text(segment, style: style));
+        continue;
+      }
+
+      final targetPath = '/${segments.take(i + 1).join('/')}';
+      children.add(
+        InkWell(
+          onTap: () => _setPath(targetPath),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: Text(
+              segment,
+              style: style?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return children;
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -158,13 +206,13 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
               children: [
                 IconButton(
                   onPressed: _currentPath.isEmpty ? null : _goUpOneLevel,
-                  icon: const Icon(Icons.arrow_upward_rounded),
+                  icon: const Icon(Icons.chevron_left_rounded),
                   tooltip: 'Up one level',
                 ),
                 Expanded(
-                  child: Text(
-                    _currentPath.isEmpty ? '/' : _currentPath.substring(1),
-                    style: Theme.of(context).textTheme.titleMedium,
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(children: _buildBreadcrumbs(context)),
                   ),
                 ),
               ],
