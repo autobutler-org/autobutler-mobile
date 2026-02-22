@@ -315,8 +315,8 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
 
     final oldPath = currentItemPath;
     final targetPath = targetInput.startsWith('/')
-      ? _normalizePath(targetInput)
-      : _joinPath(_currentPath, targetInput);
+        ? _normalizePath(targetInput)
+        : _joinPath(_currentPath, targetInput);
 
     if (targetPath.isEmpty || targetPath == oldPath) {
       return;
