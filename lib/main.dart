@@ -215,24 +215,25 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Row(
-              children: [
-                IconButton(
-                  onPressed: _currentPath.isEmpty ? null : _goUpOneLevel,
-                  icon: const Icon(Icons.chevron_left_rounded),
-                  tooltip: 'Up one level',
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Row(children: _buildBreadcrumbs(context)),
+          if (_currentPath.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+              child: Row(
+                children: [
+                  IconButton(
+                    onPressed: _goUpOneLevel,
+                    icon: const Icon(Icons.chevron_left_rounded),
+                    tooltip: 'Up one level',
                   ),
-                ),
-              ],
+                  Expanded(
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(children: _buildBreadcrumbs(context)),
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
           CheckboxListTile(
             value: _useMockData,
             controlAffinity: ListTileControlAffinity.leading,
