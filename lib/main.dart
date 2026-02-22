@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:autobutler/models/cirrus_file_node.dart';
 import 'package:autobutler/services/cirrus_service.dart';
+import 'dart:io';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 void main() {
   runApp(const AutobutlerApp());
@@ -38,6 +41,7 @@ class FileBrowserPage extends StatefulWidget {
 class _FileBrowserPageState extends State<FileBrowserPage> {
   late Future<List<CirrusFileNode>> _filesFuture;
   String _currentPath = '';
+  bool _isUploading = false;
 
   @override
   void initState() {
@@ -47,6 +51,68 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
 
   void _reloadFiles() {
     _filesFuture = CirrusService.getFiles(_currentPath);
+  }
+
+  Future<void> _handleUploadPressed() async {
+    if (_isUploading) {
+      return;
+    }
+
+    final selectedPath = await FlutterFileDialog.pickFile(
+      params: const OpenFileDialogParams(copyFileToCacheDir: true),
+    );
+    if (selectedPath == null || selectedPath.isEmpty) {
+      return;
+    }
+    final selectedFile = File(selectedPath);
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      await CirrusService.uploadFiles(_toRootDir(_currentPath), [selectedFile]);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _reloadFiles();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Uploaded ${selectedFile.uri.pathSegments.last}'),
+        ),
+      );
+    } on MissingPluginException {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'File picker plugin not available. Fully restart the app.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Upload failed')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
   }
 
   void _openDirectory(CirrusFileNode node) {
@@ -117,6 +183,15 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     }
 
     return normalized.substring(0, lastSlash);
+  }
+
+  static String _toRootDir(String path) {
+    final normalized = _normalizePath(path);
+    if (normalized.isEmpty) {
+      return '';
+    }
+
+    return normalized.substring(1);
   }
 
   List<Widget> _buildBreadcrumbs(BuildContext context) {
@@ -198,9 +273,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
             child: Row(
               children: [
                 FilledButton.tonalIcon(
-                  onPressed: () {},
+                  onPressed: _isUploading ? null : _handleUploadPressed,
                   icon: const Icon(Icons.upload_rounded),
-                  label: const Text('Upload'),
+                  label: Text(_isUploading ? 'Uploading...' : 'Upload'),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
