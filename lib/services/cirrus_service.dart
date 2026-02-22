@@ -108,22 +108,28 @@ class CirrusService {
     List<File> files, {
     String? serial,
   }) async {
-    final endpointUri = Uri.parse(_apiBaseUrl).resolve('/api/v1/cirrus');
-    final querySegments = <String>[
-      'rootDir=${Uri.encodeQueryComponent(uploadPath)}',
-    ];
+    final formDataFiles = await Future.wait(
+      files.map((file) => http.MultipartFile.fromPath('files', file.path)),
+    );
+
+    return uploadFilesFromFormData(uploadPath, formDataFiles, serial: serial);
+  }
+
+  static Future<http.StreamedResponse> uploadFilesFromFormData(
+    String uploadPath,
+    List<http.MultipartFile> formDataFiles, {
+    String? serial,
+  }) async {
+    final uploadEndpointPath = _joinPaths('/api/v1/cirrus/upload', uploadPath);
+    final endpointUri = Uri.parse(_apiBaseUrl).resolve(uploadEndpointPath);
 
     final serialValue = serial?.trim() ?? '';
-    if (serialValue.isNotEmpty) {
-      querySegments.add('serial=${Uri.encodeQueryComponent(serialValue)}');
-    }
+    final uri = serialValue.isEmpty
+        ? endpointUri
+        : endpointUri.replace(queryParameters: {'serial': serialValue});
 
-    final uri = endpointUri.replace(query: querySegments.join('&'));
     final request = http.MultipartRequest('POST', uri);
-
-    for (final file in files) {
-      request.files.add(await http.MultipartFile.fromPath('files', file.path));
-    }
+    request.files.addAll(formDataFiles);
 
     final response = await request.send();
     if (response.statusCode < 200 || response.statusCode >= 300) {
@@ -251,5 +257,21 @@ class CirrusService {
       return '';
     }
     return normalizedPath.substring(1);
+  }
+
+  static String _joinPaths(String basePath, String appendPath) {
+    final normalizedBase = basePath.endsWith('/')
+        ? basePath.substring(0, basePath.length - 1)
+        : basePath;
+    final normalizedAppend = appendPath.trim();
+
+    if (normalizedAppend.isEmpty) {
+      return normalizedBase;
+    }
+
+    final strippedAppend = normalizedAppend.startsWith('/')
+        ? normalizedAppend.substring(1)
+        : normalizedAppend;
+    return '$normalizedBase/$strippedAppend';
   }
 }
