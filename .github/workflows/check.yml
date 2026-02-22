@@ -21,3 +21,12 @@ jobs:
       - name: Lint
         run: |
           make check/lint/dart
+      - name: Generate code
+        run: |
+          make generate
+      - name: Check for uncommitted changes
+        run: |
+          if ! git diff --exit-code; then
+            echo "Error: Uncommitted changes found. Please commit the generated code."
+            exit 1
+          fi
