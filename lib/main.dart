@@ -37,7 +37,6 @@ class FileBrowserPage extends StatefulWidget {
 
 class _FileBrowserPageState extends State<FileBrowserPage> {
   late Future<List<CirrusFileNode>> _filesFuture;
-  bool _useMockData = true;
   String _currentPath = '';
 
   @override
@@ -47,10 +46,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   void _reloadFiles() {
-    _filesFuture = CirrusService.getFiles(
-      _currentPath,
-      useMockData: _useMockData,
-    );
+    _filesFuture = CirrusService.getFiles(_currentPath);
   }
 
   void _openDirectory(CirrusFileNode node) {
@@ -247,22 +243,6 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                 ),
               ],
             ),
-          ),
-          CheckboxListTile(
-            value: _useMockData,
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-            title: const Text('Use mock data'),
-            onChanged: (value) {
-              if (value == null) {
-                return;
-              }
-
-              setState(() {
-                _useMockData = value;
-                _reloadFiles();
-              });
-            },
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
