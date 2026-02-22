@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -42,6 +43,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   late Future<List<CirrusFileNode>> _filesFuture;
   String _currentPath = '';
   bool _isUploading = false;
+  bool _isCreatingFolder = false;
 
   @override
   void initState() {
@@ -113,6 +115,135 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         });
       }
     }
+  }
+
+  Future<void> _handleCreateFolderPressed() async {
+    if (_isCreatingFolder) {
+      return;
+    }
+
+    final folderName = await _promptForFolderName();
+    if (folderName == null) {
+      return;
+    }
+
+    setState(() {
+      _isCreatingFolder = true;
+    });
+
+    try {
+      await CirrusService.createFolder(_toRootDir(_currentPath), folderName);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _reloadFiles();
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Created folder $folderName')));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to create folder')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreatingFolder = false;
+        });
+      }
+    }
+  }
+
+  Future<String?> _promptForFolderName() async {
+    final nameController = TextEditingController();
+    final platform = Theme.of(context).platform;
+    final isCupertinoPlatform =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+
+    final value = isCupertinoPlatform
+        ? await showCupertinoDialog<String>(
+            context: context,
+            builder: (dialogContext) {
+              return CupertinoAlertDialog(
+                title: const Text('New Folder'),
+                content: Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: CupertinoTextField(
+                    controller: nameController,
+                    autofocus: true,
+                    placeholder: 'Folder name',
+                    textInputAction: TextInputAction.done,
+                    onSubmitted: (_) {
+                      Navigator.of(dialogContext).pop(
+                        nameController.text.trim(),
+                      );
+                    },
+                  ),
+                ),
+                actions: [
+                  CupertinoDialogAction(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  CupertinoDialogAction(
+                    isDefaultAction: true,
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop(
+                        nameController.text.trim(),
+                      );
+                    },
+                    child: const Text('Create'),
+                  ),
+                ],
+              );
+            },
+          )
+        : await showDialog<String>(
+            context: context,
+            builder: (dialogContext) {
+              return AlertDialog(
+                title: const Text('New Folder'),
+                content: TextField(
+                  controller: nameController,
+                  autofocus: true,
+                  decoration: const InputDecoration(hintText: 'Folder name'),
+                  textInputAction: TextInputAction.done,
+                  onSubmitted: (_) {
+                    Navigator.of(dialogContext).pop(nameController.text.trim());
+                  },
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Cancel'),
+                  ),
+                  FilledButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop(nameController.text.trim());
+                    },
+                    child: const Text('Create'),
+                  ),
+                ],
+              );
+            },
+          );
+
+    nameController.dispose();
+
+    final normalized = value?.trim() ?? '';
+    if (normalized.isEmpty) {
+      return null;
+    }
+
+    return normalized.replaceAll(RegExp(r'^/+|/+$'), '');
   }
 
   void _openDirectory(CirrusFileNode node) {
@@ -279,9 +410,11 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: _isCreatingFolder
+                      ? null
+                      : _handleCreateFolderPressed,
                   icon: const Icon(Icons.create_new_folder_outlined),
-                  label: const Text('New Folder'),
+                  label: Text(_isCreatingFolder ? 'Creating...' : 'New Folder'),
                 ),
               ],
             ),

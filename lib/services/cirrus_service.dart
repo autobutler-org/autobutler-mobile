@@ -103,6 +103,22 @@ class CirrusService {
     }
   }
 
+  static Future<void> createFolder(String folderPath, String folderName) async {
+    final trimmedFolderPath = folderPath.trim();
+    final endpointPath = trimmedFolderPath.isEmpty
+        ? '/api/v1/cirrus/folder/'
+        : _joinPaths('/api/v1/cirrus/folder', trimmedFolderPath);
+    final endpointUri = Uri.parse(_apiBaseUrl).resolve(endpointPath);
+
+    final request = http.MultipartRequest('POST', endpointUri);
+    request.fields['folderName'] = folderName;
+
+    final response = await request.send();
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to create folder (${response.statusCode})');
+    }
+  }
+
   static Future<http.StreamedResponse> uploadFiles(
     String uploadPath,
     List<File> files, {
