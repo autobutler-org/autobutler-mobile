@@ -1,122 +1,387 @@
 import 'package:flutter/material.dart';
 
+import 'package:autobutler/models/cirrus_file_node.dart';
+import 'package:autobutler/services/cirrus_service.dart';
+
 void main() {
-  runApp(const MyApp());
+  runApp(const AutobutlerApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class AutobutlerApp extends StatelessWidget {
+  const AutobutlerApp({super.key});
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Flutter Demo',
+      debugShowCheckedModeBanner: false,
+      title: 'Autobutler Mobile',
       theme: ThemeData(
-        // This is the theme of your application.
-        //
-        // TRY THIS: Try running your application with "flutter run". You'll see
-        // the application has a purple toolbar. Then, without quitting the app,
-        // try changing the seedColor in the colorScheme below to Colors.green
-        // and then invoke "hot reload" (save your changes or press the "hot
-        // reload" button in a Flutter-supported IDE, or press "r" if you used
-        // the command line to start the app).
-        //
-        // Notice that the counter didn't reset back to zero; the application
-        // state is not lost during the reload. To reset the state, use hot
-        // restart instead.
-        //
-        // This works for code too, not just values: Most code changes can be
-        // tested with just a hot reload.
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: Colors.blue,
+          brightness: Brightness.dark,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF070D19),
+        useMaterial3: true,
       ),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
+      home: const FileBrowserPage(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
+class FileBrowserPage extends StatefulWidget {
+  const FileBrowserPage({super.key});
 
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  State<FileBrowserPage> createState() => _FileBrowserPageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
+class _FileBrowserPageState extends State<FileBrowserPage> {
+  late Future<List<CirrusFileNode>> _filesFuture;
+  bool _useMockData = true;
+  String _currentPath = '';
 
-  void _incrementCounter() {
+  @override
+  void initState() {
+    super.initState();
+    _reloadFiles();
+  }
+
+  void _reloadFiles() {
+    _filesFuture = CirrusService.getFiles(
+      _currentPath,
+      useMockData: _useMockData,
+    );
+  }
+
+  void _openDirectory(CirrusFileNode node) {
+    if (!node.isDir) {
+      return;
+    }
+
+    _setPath(_joinPath(_currentPath, node.name));
+  }
+
+  void _goUpOneLevel() {
+    if (_currentPath.isEmpty) {
+      return;
+    }
+
+    _setPath(_parentPath(_currentPath));
+  }
+
+  void _setPath(String path) {
+    final normalized = _normalizePath(path);
+    if (normalized == _currentPath) {
+      return;
+    }
+
     setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
+      _currentPath = normalized;
+      _reloadFiles();
     });
+  }
+
+  static String _joinPath(String basePath, String segment) {
+    final cleanBase = _normalizePath(basePath);
+    final cleanSegment = segment.trim().replaceAll(RegExp(r'^/+|/+$'), '');
+
+    if (cleanSegment.isEmpty) {
+      return cleanBase;
+    }
+
+    if (cleanBase.isEmpty) {
+      return '/$cleanSegment';
+    }
+
+    return '$cleanBase/$cleanSegment';
+  }
+
+  static String _normalizePath(String path) {
+    final trimmed = path.trim();
+    if (trimmed.isEmpty || trimmed == '/') {
+      return '';
+    }
+
+    final withLeadingSlash = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    if (withLeadingSlash.endsWith('/') && withLeadingSlash.length > 1) {
+      return withLeadingSlash.substring(0, withLeadingSlash.length - 1);
+    }
+    return withLeadingSlash;
+  }
+
+  static String _parentPath(String path) {
+    final normalized = _normalizePath(path);
+    if (normalized.isEmpty) {
+      return '';
+    }
+
+    final lastSlash = normalized.lastIndexOf('/');
+    if (lastSlash <= 0) {
+      return '';
+    }
+
+    return normalized.substring(0, lastSlash);
+  }
+
+  List<Widget> _buildBreadcrumbs(BuildContext context) {
+    final style = Theme.of(context).textTheme.titleMedium;
+    if (_currentPath.isEmpty) {
+      return [Text('/', style: style)];
+    }
+
+    final segments = _currentPath.substring(1).split('/');
+    final children = <Widget>[
+      Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Text('/', style: style),
+      ),
+    ];
+
+    for (var i = 0; i < segments.length; i++) {
+      if (i > 0) {
+        children.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text('/', style: style),
+          ),
+        );
+      }
+
+      final segment = segments[i];
+      final isLast = i == segments.length - 1;
+
+      if (isLast) {
+        children.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(segment, style: style),
+          ),
+        );
+        continue;
+      }
+
+      final targetPath = '/${segments.take(i + 1).join('/')}';
+      children.add(
+        InkWell(
+          onTap: () => _setPath(targetPath),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              segment,
+              style: style?.copyWith(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return children;
   }
 
   @override
   Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
+    final colors = Theme.of(context).colorScheme;
+
     return Scaffold(
       appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
+        title: const Text('Photos'),
+        actions: [
+          IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
+          IconButton(
+            onPressed: () {},
+            icon: const Icon(Icons.grid_view_rounded),
+          ),
+        ],
       ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: .center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            child: Row(
+              children: [
+                FilledButton.tonalIcon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.upload_rounded),
+                  label: const Text('Upload'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.create_new_folder_outlined),
+                  label: const Text('New Folder'),
+                ),
+              ],
             ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: _currentPath.isEmpty ? null : _goUpOneLevel,
+                  icon: const Icon(Icons.chevron_left_rounded),
+                  tooltip: 'Up one level',
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        InkWell(
+                          onTap: () => _setPath(''),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(
+                              Icons.home_rounded,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                        ..._buildBreadcrumbs(context),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          CheckboxListTile(
+            value: _useMockData,
+            controlAffinity: ListTileControlAffinity.leading,
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
+            title: const Text('Use mock data'),
+            onChanged: (value) {
+              if (value == null) {
+                return;
+              }
+
+              setState(() {
+                _useMockData = value;
+                _reloadFiles();
+              });
+            },
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              border: Border(
+                top: BorderSide(
+                  color: colors.outlineVariant.withValues(alpha: 0.6),
+                ),
+                bottom: BorderSide(
+                  color: colors.outlineVariant.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+            child: const Row(
+              children: [
+                Expanded(flex: 6, child: Text('Name')),
+                Expanded(flex: 2, child: Text('Device')),
+                Expanded(flex: 2, child: Text('Size')),
+              ],
+            ),
+          ),
+          Expanded(
+            child: FutureBuilder<List<CirrusFileNode>>(
+              future: _filesFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      'Unable to load files',
+                      style: Theme.of(context).textTheme.bodyMedium,
+                    ),
+                  );
+                }
+
+                final files = snapshot.data ?? const <CirrusFileNode>[];
+                if (files.isEmpty) {
+                  return const Center(child: Text('No files found'));
+                }
+
+                return ListView.separated(
+                  itemCount: files.length,
+                  separatorBuilder: (_, _) => Divider(
+                    height: 1,
+                    color: colors.outlineVariant.withValues(alpha: 0.5),
+                  ),
+                  itemBuilder: (context, index) {
+                    final item = files[index];
+                    return ListTile(
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 2,
+                      ),
+                      leading: Icon(_iconForNode(item)),
+                      title: Row(
+                        children: [
+                          Expanded(flex: 5, child: Text(item.name)),
+                          Expanded(flex: 2, child: Text(item.deviceName)),
+                          Expanded(
+                            flex: 2,
+                            child: Text(_formatSize(item.size, item.isDir)),
+                          ),
+                        ],
+                      ),
+                      trailing: const Icon(Icons.more_vert),
+                      onTap: () => _openDirectory(item),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
+  }
+
+  static IconData _iconForNode(CirrusFileNode node) {
+    if (node.isDir) {
+      return Icons.folder_outlined;
+    }
+
+    final lowerName = node.name.toLowerCase();
+    if (lowerName.endsWith('.jpg') ||
+        lowerName.endsWith('.jpeg') ||
+        lowerName.endsWith('.png') ||
+        lowerName.endsWith('.gif') ||
+        lowerName.endsWith('.webp')) {
+      return Icons.image_outlined;
+    }
+
+    if (lowerName.endsWith('.zip') ||
+        lowerName.endsWith('.tar') ||
+        lowerName.endsWith('.gz') ||
+        lowerName.endsWith('.7z')) {
+      return Icons.archive_outlined;
+    }
+
+    return Icons.insert_drive_file_outlined;
+  }
+
+  static String _formatSize(int bytes, bool isDir) {
+    if (isDir) {
+      return '--';
+    }
+
+    if (bytes < 1024) {
+      return '$bytes B';
+    }
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    if (bytes < 1024 * 1024 * 1024) {
+      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+    }
+    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }

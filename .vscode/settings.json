@@ -1,3 +1,13 @@
 {
-    "dart.sdkPath": "${userHome}/flutter"
+    "dart.sdkPath": "${userHome}/flutter",
+    "cSpell.words": [
+        "Autobutler",
+        "cocoapods",
+        "codesign",
+        "libglu",
+        "NOSEMVER",
+        "pubspec",
+        "softwareupdate",
+        "webp"
+    ]
 }
