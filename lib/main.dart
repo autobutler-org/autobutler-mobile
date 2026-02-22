@@ -266,13 +266,6 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _handleDownload(CirrusFileNode node) async {
-    if (node.isDir) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Download is only available for files')),
-      );
-      return;
-    }
-
     try {
       final filePath = _toRootDir(
         _joinPath(_currentPath, _trimTrailingSlashes(node.name)),
