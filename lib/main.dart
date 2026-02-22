@@ -130,18 +130,33 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     }
 
     final segments = _currentPath.substring(1).split('/');
-    final children = <Widget>[Text('/', style: style)];
+    final children = <Widget>[
+      Padding(
+        padding: const EdgeInsets.only(right: 4),
+        child: Text('/', style: style),
+      ),
+    ];
 
     for (var i = 0; i < segments.length; i++) {
       if (i > 0) {
-        children.add(Text('/', style: style));
+        children.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text('/', style: style),
+          ),
+        );
       }
 
       final segment = segments[i];
       final isLast = i == segments.length - 1;
 
       if (isLast) {
-        children.add(Text(segment, style: style));
+        children.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(segment, style: style),
+          ),
+        );
         continue;
       }
 
@@ -150,7 +165,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         InkWell(
           onTap: () => _setPath(targetPath),
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
             child: Text(
               segment,
               style: style?.copyWith(
