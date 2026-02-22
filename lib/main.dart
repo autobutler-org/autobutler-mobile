@@ -215,25 +215,39 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
               ],
             ),
           ),
-          if (_currentPath.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-              child: Row(
-                children: [
-                  IconButton(
-                    onPressed: _goUpOneLevel,
-                    icon: const Icon(Icons.chevron_left_rounded),
-                    tooltip: 'Up one level',
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(children: _buildBreadcrumbs(context)),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: _currentPath.isEmpty ? null : _goUpOneLevel,
+                  icon: const Icon(Icons.chevron_left_rounded),
+                  tooltip: 'Up one level',
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        InkWell(
+                          onTap: () => _setPath(''),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Icon(
+                              Icons.home_rounded,
+                              size: 20,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                        ..._buildBreadcrumbs(context),
+                      ],
                     ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
+          ),
           CheckboxListTile(
             value: _useMockData,
             controlAffinity: ListTileControlAffinity.leading,
