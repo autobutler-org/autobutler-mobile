@@ -52,6 +52,7 @@ setup/cocoapods: ## Setup CocoaPods for iOS development
 ifeq ($(UNAME_S),Darwin)
 	brew install ruby
 	$$(brew --prefix)/opt/ruby/bin/gem install cocoapods
+	echo "Make sure to put $$(gem env gemdir)/bin in your PATH to use the installed cocoapods"
 else
 	$(error "CocoaPods setup is only supported on macOS")
 endif
