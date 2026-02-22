@@ -14,8 +14,7 @@ endif
 UNAME_S := $(shell uname -s)
 FLUTTER_VERSION=$(shell grep -Eo 'flutter: (.+)' pubspec.yaml | sed -E 's/^flutter: (.+)$$/\1/')
 
-clean:
-	flutter pub clean
+##@ Development environment
 
 setup: setup/flutter ## Setup development environment
 
@@ -67,6 +66,8 @@ else
 	$(error "iOS development environment setup is only supported on macOS")
 endif
 
+##@ Development
+
 build: ## Build mobile app
 ifeq ($(UNAME_S),Linux)
 	make build/android
@@ -81,6 +82,9 @@ build/android: ## Build Android app
 
 build/ios: ## Build iOS app
 	flutter build ios --debug --no-codesign
+
+clean: ## Clean build artifacts
+	flutter pub clean
 
 emulate: ## Emulate mobile device
 ifeq ($(UNAME_S),Linux)
@@ -100,30 +104,19 @@ emulate/android: ## Emulate Android device
 emulate/ios: ## Emulate iOS device
 	flutter emulators --launch $(IOS_DEVICE_ID)
 
+refresh: ## Refresh build manifest
+	flutter pub get
+
 run: ## Run mobile app
-ifeq ($(UNAME_S),Linux)
-	make run/android
-else ifeq ($(UNAME_S),Darwin)
-	make run/ios
-else
-	$(error "Unsupported OS: $(UNAME_S)")
-endif
-
-run/android: ## Run Android
-	flutter run --device-id $(ANDROID_DEVICE_ID)
-
-run/ios: ## Run iOS
-	flutter run --device-id $(IOS_DEVICE_ID)
+	echo "Will run app on connected device or emulator..."
+	flutter run
 
 test: test/unit ## Run tests
 
 test/unit: ## Run unit tests
 	flutter test
 
-format: format/dart ## Format code
-
-format/dart: ## Format Dart code
-	dart format .
+##@ Code quality
 
 check: check/format/dart check/lint/dart ## Check code
 
@@ -133,14 +126,18 @@ check/format/dart: ## Check code formatting
 check/lint/dart: ## Lint Dart code
 	flutter analyze
 
-deps: ## Install dependencies
-	flutter pub get
+format: format/dart ## Format code
+
+format/dart: ## Format Dart code
+	dart format .
+
+##@ Helpers
+
+help: ## Displays help info
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
 
 env-%: ## Check for env var
 	if [ -z "$($*)" ]; then \
 		echo "Error: Environment variable '$*' is not set."; \
 		exit 1; \
 	fi
-
-help: ## Displays help info
-	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m\033[0m\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-15s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
