@@ -182,9 +182,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                     placeholder: 'Folder name',
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) {
-                      Navigator.of(dialogContext).pop(
-                        nameController.text.trim(),
-                      );
+                      Navigator.of(
+                        dialogContext,
+                      ).pop(nameController.text.trim());
                     },
                   ),
                 ),
@@ -196,9 +196,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                   CupertinoDialogAction(
                     isDefaultAction: true,
                     onPressed: () {
-                      Navigator.of(dialogContext).pop(
-                        nameController.text.trim(),
-                      );
+                      Navigator.of(
+                        dialogContext,
+                      ).pop(nameController.text.trim());
                     },
                     child: const Text('Create'),
                   ),
@@ -227,7 +227,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                   ),
                   FilledButton(
                     onPressed: () {
-                      Navigator.of(dialogContext).pop(nameController.text.trim());
+                      Navigator.of(
+                        dialogContext,
+                      ).pop(nameController.text.trim());
                     },
                     child: const Text('Create'),
                   ),
