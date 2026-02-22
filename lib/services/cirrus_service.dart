@@ -1,6 +1,14 @@
+import 'dart:convert';
+
 import 'package:autobutler/models/cirrus_file_node.dart';
+import 'package:http/http.dart' as http;
 
 class CirrusService {
+  static const String _apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:8080',
+  );
+
   static const List<CirrusFileNode> _mockNodes = [
     CirrusFileNode(
       name: 'flipped_(1).jpg',
@@ -95,19 +103,26 @@ class CirrusService {
   ];
 
   static Future<List<CirrusFileNode>> getFiles(
-    String path, [
+    String path, {
+    bool useMockData = true,
     List<String>? serials,
-  ]) async {
+  }) async {
+    if (!useMockData) {
+      return _getFilesFromApi(path, serials: serials);
+    }
+
     await Future<void>.delayed(const Duration(milliseconds: 120));
 
-    final normalizedPath = path.trim().isEmpty ? '/' : path.trim();
+    final normalizedPath = _normalizePath(path);
     final serialFilter = serials
         ?.where((serial) => serial.trim().isNotEmpty)
         .toSet();
 
     return _mockNodes
         .where((node) {
-          final isInPath = node.fullPath.startsWith(normalizedPath);
+          final isInPath =
+              normalizedPath.isEmpty ||
+              node.fullPath.startsWith(normalizedPath);
           if (!isInPath) {
             return false;
           }
@@ -119,5 +134,59 @@ class CirrusService {
           return serialFilter.contains(node.deviceSerial);
         })
         .toList(growable: false);
+  }
+
+  static Future<List<CirrusFileNode>> _getFilesFromApi(
+    String path, {
+    List<String>? serials,
+  }) async {
+    final normalizedPath = _normalizePath(path);
+    final serialValues =
+        serials
+            ?.map((value) => value.trim())
+            .where((value) => value.isNotEmpty)
+            .toList(growable: false) ??
+        const <String>[];
+
+    final querySegments = <String>[];
+    if (normalizedPath.isNotEmpty) {
+      querySegments.add('rootDir=${Uri.encodeQueryComponent(normalizedPath)}');
+    }
+    for (final serial in serialValues) {
+      querySegments.add('serial=${Uri.encodeQueryComponent(serial)}');
+    }
+
+    final endpointUri = Uri.parse(_apiBaseUrl).resolve('/api/v1/cirrus');
+    final uri = querySegments.isEmpty
+        ? endpointUri
+        : endpointUri.replace(query: querySegments.join('&'));
+
+    final response = await http.get(uri);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to load cirrus files (${response.statusCode})');
+    }
+
+    final decoded = jsonDecode(response.body);
+    if (decoded is! List) {
+      throw Exception('Unexpected cirrus response format');
+    }
+
+    return decoded
+        .whereType<Map<String, dynamic>>()
+        .map(CirrusFileNode.fromJson)
+        .toList(growable: false);
+  }
+
+  static String _normalizePath(String path) {
+    final trimmed = path.trim();
+    if (trimmed.isEmpty || trimmed == '/') {
+      return '';
+    }
+
+    final withLeadingSlash = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    if (withLeadingSlash.endsWith('/') && withLeadingSlash.length > 1) {
+      return withLeadingSlash.substring(0, withLeadingSlash.length - 1);
+    }
+    return withLeadingSlash;
   }
 }
