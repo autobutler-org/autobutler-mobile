@@ -64,6 +64,17 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     });
   }
 
+  void _goUpOneLevel() {
+    if (_currentPath.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _currentPath = _parentPath(_currentPath);
+      _reloadFiles();
+    });
+  }
+
   static String _joinPath(String basePath, String segment) {
     final cleanBase = _normalizePath(basePath);
     final cleanSegment = segment.trim().replaceAll(RegExp(r'^/+|/+$'), '');
@@ -90,6 +101,20 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       return withLeadingSlash.substring(0, withLeadingSlash.length - 1);
     }
     return withLeadingSlash;
+  }
+
+  static String _parentPath(String path) {
+    final normalized = _normalizePath(path);
+    if (normalized.isEmpty) {
+      return '';
+    }
+
+    final lastSlash = normalized.lastIndexOf('/');
+    if (lastSlash <= 0) {
+      return '';
+    }
+
+    return normalized.substring(0, lastSlash);
   }
 
   @override
@@ -129,12 +154,20 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
           ),
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                _currentPath.isEmpty ? '/' : _currentPath.substring(1),
-                style: Theme.of(context).textTheme.titleMedium,
-              ),
+            child: Row(
+              children: [
+                IconButton(
+                  onPressed: _currentPath.isEmpty ? null : _goUpOneLevel,
+                  icon: const Icon(Icons.arrow_upward_rounded),
+                  tooltip: 'Up one level',
+                ),
+                Expanded(
+                  child: Text(
+                    _currentPath.isEmpty ? '/' : _currentPath.substring(1),
+                    style: Theme.of(context).textTheme.titleMedium,
+                  ),
+                ),
+              ],
             ),
           ),
           CheckboxListTile(
