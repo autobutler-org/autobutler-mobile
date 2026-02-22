@@ -15,8 +15,8 @@ class CirrusService {
       size: 6501171,
       isDir: false,
       deviceName: 'Data',
-      devicePath: '/cirrus/flipped_(1).jpg',
-      fullPath: '/cirrus/flipped_(1).jpg',
+      devicePath: '/flipped_(1).jpg',
+      fullPath: '/flipped_(1).jpg',
       deviceSerial: '',
     ),
     CirrusFileNode(
@@ -24,8 +24,8 @@ class CirrusService {
       size: 6501171,
       isDir: false,
       deviceName: 'Data',
-      devicePath: '/cirrus/flipped_(2).jpg',
-      fullPath: '/cirrus/flipped_(2).jpg',
+      devicePath: '/flipped_(2).jpg',
+      fullPath: '/flipped_(2).jpg',
       deviceSerial: '',
     ),
     CirrusFileNode(
@@ -33,8 +33,8 @@ class CirrusService {
       size: 6501171,
       isDir: false,
       deviceName: 'Data',
-      devicePath: '/cirrus/flipped_(3).jpg',
-      fullPath: '/cirrus/flipped_(3).jpg',
+      devicePath: '/flipped_(3).jpg',
+      fullPath: '/flipped_(3).jpg',
       deviceSerial: '',
     ),
     CirrusFileNode(
@@ -42,8 +42,8 @@ class CirrusService {
       size: 6501171,
       isDir: false,
       deviceName: 'Data',
-      devicePath: '/cirrus/flipped_(4).jpg',
-      fullPath: '/cirrus/flipped_(4).jpg',
+      devicePath: '/flipped_(4).jpg',
+      fullPath: '/flipped_(4).jpg',
       deviceSerial: '',
     ),
     CirrusFileNode(
@@ -51,8 +51,8 @@ class CirrusService {
       size: 6501171,
       isDir: false,
       deviceName: 'Data',
-      devicePath: '/cirrus/flipped_(5).jpg',
-      fullPath: '/cirrus/flipped_(5).jpg',
+      devicePath: '/flipped_(5).jpg',
+      fullPath: '/flipped_(5).jpg',
       deviceSerial: '',
     ),
     CirrusFileNode(
@@ -60,8 +60,8 @@ class CirrusService {
       size: 6501171,
       isDir: false,
       deviceName: 'Data',
-      devicePath: '/cirrus/flipped_(6).jpg',
-      fullPath: '/cirrus/flipped_(6).jpg',
+      devicePath: '/flipped_(6).jpg',
+      fullPath: '/flipped_(6).jpg',
       deviceSerial: '',
     ),
     CirrusFileNode(
@@ -69,8 +69,8 @@ class CirrusService {
       size: 6501171,
       isDir: false,
       deviceName: 'Data',
-      devicePath: '/cirrus/flipped_(7).jpg',
-      fullPath: '/cirrus/flipped_(7).jpg',
+      devicePath: '/flipped_(7).jpg',
+      fullPath: '/flipped_(7).jpg',
       deviceSerial: '',
     ),
     CirrusFileNode(
@@ -78,8 +78,8 @@ class CirrusService {
       size: 43315,
       isDir: false,
       deviceName: 'Data',
-      devicePath: '/cirrus/Google_Data_autobutler.org@gmail.com_1769933022.zip',
-      fullPath: '/cirrus/Google_Data_autobutler.org@gmail.com_1769933022.zip',
+      devicePath: '/Google_Data_autobutler.org@gmail.com_1769933022.zip',
+      fullPath: '/Google_Data_autobutler.org@gmail.com_1769933022.zip',
       deviceSerial: '',
     ),
     CirrusFileNode(
@@ -87,8 +87,35 @@ class CirrusService {
       size: 0,
       isDir: true,
       deviceName: 'Data',
-      devicePath: '/cirrus/project-assets',
-      fullPath: '/cirrus/project-assets',
+      devicePath: '/project-assets',
+      fullPath: '/project-assets',
+      deviceSerial: '',
+    ),
+    CirrusFileNode(
+      name: 'screenshots',
+      size: 0,
+      isDir: true,
+      deviceName: 'Data',
+      devicePath: '/project-assets/screenshots',
+      fullPath: '/project-assets/screenshots',
+      deviceSerial: '',
+    ),
+    CirrusFileNode(
+      name: 'changelog.md',
+      size: 5320,
+      isDir: false,
+      deviceName: 'Data',
+      devicePath: '/project-assets/changelog.md',
+      fullPath: '/project-assets/changelog.md',
+      deviceSerial: '',
+    ),
+    CirrusFileNode(
+      name: 'capture-001.png',
+      size: 384201,
+      isDir: false,
+      deviceName: 'Data',
+      devicePath: '/project-assets/screenshots/capture-001.png',
+      fullPath: '/project-assets/screenshots/capture-001.png',
       deviceSerial: '',
     ),
     CirrusFileNode(
@@ -96,8 +123,8 @@ class CirrusService {
       size: 8142,
       isDir: false,
       deviceName: 'Backup',
-      devicePath: '/cirrus/diag-report.txt',
-      fullPath: '/cirrus/diag-report.txt',
+      devicePath: '/diag-report.txt',
+      fullPath: '/diag-report.txt',
       deviceSerial: 'BACKUP-01',
     ),
   ];
@@ -120,10 +147,8 @@ class CirrusService {
 
     return _mockNodes
         .where((node) {
-          final isInPath =
-              normalizedPath.isEmpty ||
-              node.fullPath.startsWith(normalizedPath);
-          if (!isInPath) {
+          final parentPath = _parentDirectory(node.fullPath);
+          if (parentPath != normalizedPath) {
             return false;
           }
 
@@ -134,6 +159,19 @@ class CirrusService {
           return serialFilter.contains(node.deviceSerial);
         })
         .toList(growable: false);
+  }
+
+  static String _parentDirectory(String path) {
+    final normalized = _normalizePath(path);
+    if (normalized.isEmpty) {
+      return '';
+    }
+
+    final lastSlash = normalized.lastIndexOf('/');
+    if (lastSlash <= 0) {
+      return '';
+    }
+    return normalized.substring(0, lastSlash);
   }
 
   static Future<List<CirrusFileNode>> _getFilesFromApi(
@@ -150,7 +188,9 @@ class CirrusService {
 
     final querySegments = <String>[];
     if (normalizedPath.isNotEmpty) {
-      querySegments.add('rootDir=${Uri.encodeQueryComponent(normalizedPath)}');
+      querySegments.add(
+        'rootDir=${Uri.encodeQueryComponent(_toRootDir(normalizedPath))}',
+      );
     }
     for (final serial in serialValues) {
       querySegments.add('serial=${Uri.encodeQueryComponent(serial)}');
@@ -188,5 +228,12 @@ class CirrusService {
       return withLeadingSlash.substring(0, withLeadingSlash.length - 1);
     }
     return withLeadingSlash;
+  }
+
+  static String _toRootDir(String normalizedPath) {
+    if (normalizedPath.isEmpty) {
+      return '';
+    }
+    return normalizedPath.substring(1);
   }
 }

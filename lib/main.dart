@@ -38,6 +38,7 @@ class FileBrowserPage extends StatefulWidget {
 class _FileBrowserPageState extends State<FileBrowserPage> {
   late Future<List<CirrusFileNode>> _filesFuture;
   bool _useMockData = true;
+  String _currentPath = '';
 
   @override
   void initState() {
@@ -46,7 +47,49 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   void _reloadFiles() {
-    _filesFuture = CirrusService.getFiles('', useMockData: _useMockData);
+    _filesFuture = CirrusService.getFiles(
+      _currentPath,
+      useMockData: _useMockData,
+    );
+  }
+
+  void _openDirectory(CirrusFileNode node) {
+    if (!node.isDir) {
+      return;
+    }
+
+    setState(() {
+      _currentPath = _joinPath(_currentPath, node.name);
+      _reloadFiles();
+    });
+  }
+
+  static String _joinPath(String basePath, String segment) {
+    final cleanBase = _normalizePath(basePath);
+    final cleanSegment = segment.trim().replaceAll(RegExp(r'^/+|/+$'), '');
+
+    if (cleanSegment.isEmpty) {
+      return cleanBase;
+    }
+
+    if (cleanBase.isEmpty) {
+      return '/$cleanSegment';
+    }
+
+    return '$cleanBase/$cleanSegment';
+  }
+
+  static String _normalizePath(String path) {
+    final trimmed = path.trim();
+    if (trimmed.isEmpty || trimmed == '/') {
+      return '';
+    }
+
+    final withLeadingSlash = trimmed.startsWith('/') ? trimmed : '/$trimmed';
+    if (withLeadingSlash.endsWith('/') && withLeadingSlash.length > 1) {
+      return withLeadingSlash.substring(0, withLeadingSlash.length - 1);
+    }
+    return withLeadingSlash;
   }
 
   @override
@@ -89,7 +132,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
             child: Align(
               alignment: Alignment.centerLeft,
               child: Text(
-                'cirrus',
+                _currentPath.isEmpty ? '/' : _currentPath.substring(1),
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
@@ -178,7 +221,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                         ],
                       ),
                       trailing: const Icon(Icons.more_vert),
-                      onTap: () {},
+                      onTap: () => _openDirectory(item),
                     );
                   },
                 );
