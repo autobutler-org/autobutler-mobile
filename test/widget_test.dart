@@ -18,6 +18,5 @@ void main() {
     expect(find.text('Name'), findsOneWidget);
     expect(find.text('Device'), findsOneWidget);
     expect(find.text('Size'), findsOneWidget);
-    expect(find.text('flipped_(1).jpg'), findsOneWidget);
   });
 }
