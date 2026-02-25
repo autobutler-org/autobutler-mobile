@@ -174,75 +174,72 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     final isCupertinoPlatform =
         platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
 
-    final value = isCupertinoPlatform
-        ? await showCupertinoDialog<String>(
-            context: context,
-            builder: (dialogContext) {
-              return CupertinoAlertDialog(
-                title: const Text('New Folder'),
-                content: Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: CupertinoTextField(
-                    controller: nameController,
-                    autofocus: true,
-                    placeholder: 'Folder name',
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) {
-                      Navigator.of(
-                        dialogContext,
-                      ).pop(nameController.text.trim());
-                    },
-                  ),
-                ),
-                actions: [
-                  CupertinoDialogAction(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  CupertinoDialogAction(
-                    isDefaultAction: true,
-                    onPressed: () {
-                      Navigator.of(
-                        dialogContext,
-                      ).pop(nameController.text.trim());
-                    },
-                    child: const Text('Create'),
-                  ),
-                ],
-              );
-            },
-          )
-        : await showDialog<String>(
-            context: context,
-            builder: (dialogContext) {
-              return AlertDialog(
-                title: const Text('New Folder'),
-                content: TextField(
-                  controller: nameController,
-                  autofocus: true,
-                  decoration: const InputDecoration(hintText: 'Folder name'),
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) {
-                    Navigator.of(dialogContext).pop(nameController.text.trim());
-                  },
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  FilledButton(
-                    onPressed: () {
-                      Navigator.of(
-                        dialogContext,
-                      ).pop(nameController.text.trim());
-                    },
-                    child: const Text('Create'),
-                  ),
-                ],
-              );
-            },
+    final String? value;
+    if (isCupertinoPlatform) {
+      value = await showCupertinoDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return CupertinoAlertDialog(
+            title: const Text('New Folder'),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: CupertinoTextField(
+                controller: nameController,
+                autofocus: true,
+                placeholder: 'Folder name',
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  Navigator.of(dialogContext).pop(nameController.text.trim());
+                },
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(nameController.text.trim());
+                },
+                child: const Text('Create'),
+              ),
+            ],
           );
+        },
+      );
+    } else {
+      value = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('New Folder'),
+            content: TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'Folder name'),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                Navigator.of(dialogContext).pop(nameController.text.trim());
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(nameController.text.trim());
+                },
+                child: const Text('Create'),
+              ),
+            ],
+          );
+        },
+      );
+    }
 
     nameController.dispose();
 
@@ -392,77 +389,72 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     final isCupertinoPlatform =
         platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
 
-    final value = isCupertinoPlatform
-        ? await showCupertinoDialog<String>(
-            context: context,
-            builder: (dialogContext) {
-              return CupertinoAlertDialog(
-                title: const Text('Move / Rename'),
-                content: Padding(
-                  padding: const EdgeInsets.only(top: 12),
-                  child: CupertinoTextField(
-                    controller: pathController,
-                    autofocus: true,
-                    placeholder: 'New name or path',
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) {
-                      Navigator.of(
-                        dialogContext,
-                      ).pop(pathController.text.trim());
-                    },
-                  ),
-                ),
-                actions: [
-                  CupertinoDialogAction(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  CupertinoDialogAction(
-                    isDefaultAction: true,
-                    onPressed: () {
-                      Navigator.of(
-                        dialogContext,
-                      ).pop(pathController.text.trim());
-                    },
-                    child: const Text('Save'),
-                  ),
-                ],
-              );
-            },
-          )
-        : await showDialog<String>(
-            context: context,
-            builder: (dialogContext) {
-              return AlertDialog(
-                title: const Text('Move / Rename'),
-                content: TextField(
-                  controller: pathController,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    hintText: 'New name or path',
-                  ),
-                  textInputAction: TextInputAction.done,
-                  onSubmitted: (_) {
-                    Navigator.of(dialogContext).pop(pathController.text.trim());
-                  },
-                ),
-                actions: [
-                  TextButton(
-                    onPressed: () => Navigator.of(dialogContext).pop(),
-                    child: const Text('Cancel'),
-                  ),
-                  FilledButton(
-                    onPressed: () {
-                      Navigator.of(
-                        dialogContext,
-                      ).pop(pathController.text.trim());
-                    },
-                    child: const Text('Save'),
-                  ),
-                ],
-              );
-            },
+    final String? value;
+    if (isCupertinoPlatform) {
+      value = await showCupertinoDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return CupertinoAlertDialog(
+            title: const Text('Move / Rename'),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: CupertinoTextField(
+                controller: pathController,
+                autofocus: true,
+                placeholder: 'New name or path',
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  Navigator.of(dialogContext).pop(pathController.text.trim());
+                },
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(pathController.text.trim());
+                },
+                child: const Text('Save'),
+              ),
+            ],
           );
+        },
+      );
+    } else {
+      value = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Move / Rename'),
+            content: TextField(
+              controller: pathController,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'New name or path'),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                Navigator.of(dialogContext).pop(pathController.text.trim());
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(pathController.text.trim());
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      );
+    }
 
     pathController.dispose();
 
