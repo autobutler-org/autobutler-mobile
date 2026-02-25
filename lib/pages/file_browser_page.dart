@@ -1,12 +1,14 @@
 import 'dart:io';
 
 import 'package:autobutler/models/cirrus_file_node.dart';
+import 'package:autobutler/services/file_browser_actions.dart';
 import 'package:autobutler/services/cirrus_service.dart';
+import 'package:autobutler/utils/file_browser_dialogs.dart';
+import 'package:autobutler/utils/file_browser_path_utils.dart';
 import 'package:autobutler/widgets/file_browser/file_actions_bar.dart';
 import 'package:autobutler/widgets/file_browser/file_breadcrumb_bar.dart';
 import 'package:autobutler/widgets/file_browser/file_list_header.dart';
 import 'package:autobutler/widgets/file_browser/file_list_view.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_file_dialog/flutter_file_dialog.dart';
@@ -58,7 +60,10 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     });
 
     try {
-      await CirrusService.uploadFiles(_toRootDir(_currentPath), [selectedFile]);
+      await uploadFileToCurrentPath(
+        currentPath: _currentPath,
+        selectedFile: selectedFile,
+      );
 
       if (!mounted) {
         return;
@@ -107,7 +112,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       return;
     }
 
-    final folderName = await _promptForFolderName();
+    final folderName = await promptForFolderName(context);
     if (folderName == null) {
       return;
     }
@@ -117,7 +122,10 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     });
 
     try {
-      await CirrusService.createFolder(_toRootDir(_currentPath), folderName);
+      await createFolderAtCurrentPath(
+        currentPath: _currentPath,
+        folderName: folderName,
+      );
 
       if (!mounted) {
         return;
@@ -147,89 +155,6 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     }
   }
 
-  Future<String?> _promptForFolderName() async {
-    final nameController = TextEditingController();
-    final platform = Theme.of(context).platform;
-    final isCupertinoPlatform =
-        platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
-
-    final String? value;
-    if (isCupertinoPlatform) {
-      value = await showCupertinoDialog<String>(
-        context: context,
-        builder: (dialogContext) {
-          return CupertinoAlertDialog(
-            title: const Text('New Folder'),
-            content: Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: CupertinoTextField(
-                controller: nameController,
-                autofocus: true,
-                placeholder: 'Folder name',
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) {
-                  Navigator.of(dialogContext).pop(nameController.text.trim());
-                },
-              ),
-            ),
-            actions: [
-              CupertinoDialogAction(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              CupertinoDialogAction(
-                isDefaultAction: true,
-                onPressed: () {
-                  Navigator.of(dialogContext).pop(nameController.text.trim());
-                },
-                child: const Text('Create'),
-              ),
-            ],
-          );
-        },
-      );
-    } else {
-      value = await showDialog<String>(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: const Text('New Folder'),
-            content: TextField(
-              controller: nameController,
-              autofocus: true,
-              decoration: const InputDecoration(hintText: 'Folder name'),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                Navigator.of(dialogContext).pop(nameController.text.trim());
-              },
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop(nameController.text.trim());
-                },
-                child: const Text('Create'),
-              ),
-            ],
-          );
-        },
-      );
-    }
-
-    nameController.dispose();
-
-    final normalized = value?.trim() ?? '';
-    if (normalized.isEmpty) {
-      return null;
-    }
-
-    return normalized.replaceAll(RegExp(r'^/+|/+$'), '');
-  }
-
   Future<void> _handleFileMenuAction(
     CirrusFileNode node,
     FileMenuAction action,
@@ -249,13 +174,9 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
 
   Future<void> _handleDownload(CirrusFileNode node) async {
     try {
-      final filePath = _toRootDir(
-        _joinPath(_currentPath, _trimTrailingSlashes(node.name)),
-      );
-      final savedPath = await CirrusService.downloadFile(
-        filePath,
-        serial: _serialOrNull(node),
-        fileName: _trimTrailingSlashes(node.name),
+      final savedPath = await downloadNode(
+        currentPath: _currentPath,
+        node: node,
       );
 
       if (!mounted) {
@@ -264,7 +185,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
 
       final message = savedPath == null
           ? 'Download canceled'
-          : 'Downloaded ${_trimTrailingSlashes(node.name)}';
+          : 'Downloaded ${trimTrailingSlashes(node.name)}';
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text(message)));
@@ -279,31 +200,25 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _handleMoveRename(CirrusFileNode node) async {
-    final currentItemPath = _joinPath(
-      _currentPath,
-      _trimTrailingSlashes(node.name),
-    );
-    final targetInput = await _promptForMoveRenamePath();
+    final targetInput = await promptForMoveRenamePath(context);
     if (targetInput == null) {
       return;
     }
 
-    final oldPath = currentItemPath;
+    final oldPath = joinPath(_currentPath, trimTrailingSlashes(node.name));
     final targetPath = targetInput.startsWith('/')
-        ? _normalizePath(targetInput)
-        : _joinPath(_currentPath, targetInput);
+        ? normalizePath(targetInput)
+        : joinPath(_currentPath, targetInput);
 
     if (targetPath.isEmpty || targetPath == oldPath) {
       return;
     }
 
     try {
-      final serial = _serialOrNull(node);
-      await CirrusService.moveFile(
-        oldPath,
-        targetPath,
-        oldDeviceSerial: serial,
-        newDeviceSerial: serial,
+      await moveRenameNode(
+        currentPath: _currentPath,
+        node: node,
+        targetInput: targetInput,
       );
 
       if (!mounted) {
@@ -328,18 +243,16 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   Future<void> _handleDelete(CirrusFileNode node) async {
-    final shouldDelete = await _confirmDelete(node);
+    final shouldDelete = await confirmDelete(
+      context,
+      trimTrailingSlashes(node.name),
+    );
     if (shouldDelete != true) {
       return;
     }
 
     try {
-      final rootDir = _toRootDir(_currentPath);
-      await CirrusService.deleteFile(
-        rootDir,
-        _trimTrailingSlashes(node.name),
-        deviceSerial: _serialOrNull(node),
-      );
+      await deleteNode(currentPath: _currentPath, node: node);
 
       if (!mounted) {
         return;
@@ -362,134 +275,12 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     }
   }
 
-  Future<String?> _promptForMoveRenamePath() async {
-    final pathController = TextEditingController();
-    final platform = Theme.of(context).platform;
-    final isCupertinoPlatform =
-        platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
-
-    final String? value;
-    if (isCupertinoPlatform) {
-      value = await showCupertinoDialog<String>(
-        context: context,
-        builder: (dialogContext) {
-          return CupertinoAlertDialog(
-            title: const Text('Move / Rename'),
-            content: Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: CupertinoTextField(
-                controller: pathController,
-                autofocus: true,
-                placeholder: 'New name or path',
-                textInputAction: TextInputAction.done,
-                onSubmitted: (_) {
-                  Navigator.of(dialogContext).pop(pathController.text.trim());
-                },
-              ),
-            ),
-            actions: [
-              CupertinoDialogAction(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              CupertinoDialogAction(
-                isDefaultAction: true,
-                onPressed: () {
-                  Navigator.of(dialogContext).pop(pathController.text.trim());
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        },
-      );
-    } else {
-      value = await showDialog<String>(
-        context: context,
-        builder: (dialogContext) {
-          return AlertDialog(
-            title: const Text('Move / Rename'),
-            content: TextField(
-              controller: pathController,
-              autofocus: true,
-              decoration: const InputDecoration(hintText: 'New name or path'),
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) {
-                Navigator.of(dialogContext).pop(pathController.text.trim());
-              },
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(dialogContext).pop(),
-                child: const Text('Cancel'),
-              ),
-              FilledButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop(pathController.text.trim());
-                },
-                child: const Text('Save'),
-              ),
-            ],
-          );
-        },
-      );
-    }
-
-    pathController.dispose();
-
-    final normalized = (value ?? '').trim();
-    if (normalized.isEmpty) {
-      return null;
-    }
-
-    return normalized;
-  }
-
-  Future<bool?> _confirmDelete(CirrusFileNode node) {
-    final itemName = _trimTrailingSlashes(node.name);
-    return showAdaptiveDialog<bool>(
-      context: context,
-      builder: (dialogContext) {
-        return AlertDialog.adaptive(
-          title: const Text('Delete'),
-          content: Text('Delete $itemName?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(false),
-              child: const Text('Cancel'),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(true),
-              child: const Text('Delete'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  static String _trimTrailingSlashes(String value) {
-    final trimmed = value.trim();
-    if (trimmed.isEmpty) {
-      return trimmed;
-    }
-    return trimmed.replaceFirst(RegExp(r'/+$'), '');
-  }
-
-  static String? _serialOrNull(CirrusFileNode node) {
-    final serial = node.deviceSerial.trim();
-    if (serial.isEmpty) {
-      return null;
-    }
-    return serial;
-  }
-
   void _openDirectory(CirrusFileNode node) {
     if (!node.isDir) {
       return;
     }
 
-    _setPath(_joinPath(_currentPath, node.name));
+    _setPath(joinPath(_currentPath, node.name));
   }
 
   void _goUpOneLevel() {
@@ -497,11 +288,11 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       return;
     }
 
-    _setPath(_parentPath(_currentPath));
+    _setPath(parentPath(_currentPath));
   }
 
   void _setPath(String path) {
-    final normalized = _normalizePath(path);
+    final normalized = normalizePath(path);
     if (normalized == _currentPath) {
       return;
     }
@@ -510,57 +301,6 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       _currentPath = normalized;
       _reloadFiles();
     });
-  }
-
-  static String _joinPath(String basePath, String segment) {
-    final cleanBase = _normalizePath(basePath);
-    final cleanSegment = segment.trim().replaceAll(RegExp(r'^/+|/+$'), '');
-
-    if (cleanSegment.isEmpty) {
-      return cleanBase;
-    }
-
-    if (cleanBase.isEmpty) {
-      return '/$cleanSegment';
-    }
-
-    return '$cleanBase/$cleanSegment';
-  }
-
-  static String _normalizePath(String path) {
-    final trimmed = path.trim();
-    if (trimmed.isEmpty || trimmed == '/') {
-      return '';
-    }
-
-    final withLeadingSlash = trimmed.startsWith('/') ? trimmed : '/$trimmed';
-    if (withLeadingSlash.endsWith('/') && withLeadingSlash.length > 1) {
-      return withLeadingSlash.substring(0, withLeadingSlash.length - 1);
-    }
-    return withLeadingSlash;
-  }
-
-  static String _parentPath(String path) {
-    final normalized = _normalizePath(path);
-    if (normalized.isEmpty) {
-      return '';
-    }
-
-    final lastSlash = normalized.lastIndexOf('/');
-    if (lastSlash <= 0) {
-      return '';
-    }
-
-    return normalized.substring(0, lastSlash);
-  }
-
-  static String _toRootDir(String path) {
-    final normalized = _normalizePath(path);
-    if (normalized.isEmpty) {
-      return '';
-    }
-
-    return normalized.substring(1);
   }
 
   @override
