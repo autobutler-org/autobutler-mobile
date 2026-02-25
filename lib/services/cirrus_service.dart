@@ -12,6 +12,18 @@ class CirrusService {
     defaultValue: 'http://localhost:8080',
   );
 
+  static Uri get _apiBaseUri {
+    final uri = Uri.parse(_apiBaseUrl);
+    final isLoopbackHost =
+        uri.host == 'localhost' || uri.host == '127.0.0.1' || uri.host == '::1';
+
+    if (Platform.isAndroid && isLoopbackHost) {
+      return uri.replace(host: '10.0.2.2');
+    }
+
+    return uri;
+  }
+
   static Future<List<CirrusFileNode>> getFiles(
     String path, {
     List<String>? serials,
@@ -34,7 +46,7 @@ class CirrusService {
       querySegments.add('serial=${Uri.encodeQueryComponent(serial)}');
     }
 
-    final endpointUri = Uri.parse(_apiBaseUrl).resolve('/api/v1/cirrus');
+    final endpointUri = _apiBaseUri.resolve('/api/v1/cirrus');
     final uri = querySegments.isEmpty
         ? endpointUri
         : endpointUri.replace(query: querySegments.join('&'));
@@ -69,7 +81,7 @@ class CirrusService {
       querySegments.add('serial=${Uri.encodeQueryComponent(serial)}');
     }
 
-    final endpointUri = Uri.parse(_apiBaseUrl).resolve('/api/v1/cirrus');
+    final endpointUri = _apiBaseUri.resolve('/api/v1/cirrus');
     final uri = endpointUri.replace(query: querySegments.join('&'));
 
     final response = await http.delete(uri);
@@ -84,7 +96,7 @@ class CirrusService {
     String? oldDeviceSerial,
     String? newDeviceSerial,
   }) async {
-    final endpointUri = Uri.parse(_apiBaseUrl).resolve('/api/v1/cirrus');
+    final endpointUri = _apiBaseUri.resolve('/api/v1/cirrus');
     final requestBody = <String, String>{
       'oldFilePath': oldPath,
       'newFilePath': newPath,
@@ -118,7 +130,7 @@ class CirrusService {
     final endpointPath = trimmedFolderPath.isEmpty
         ? '/api/v1/cirrus/folder/'
         : _joinPaths('/api/v1/cirrus/folder', trimmedFolderPath);
-    final endpointUri = Uri.parse(_apiBaseUrl).resolve(endpointPath);
+    final endpointUri = _apiBaseUri.resolve(endpointPath);
 
     final request = http.MultipartRequest('POST', endpointUri);
     request.fields['folderName'] = folderName;
@@ -147,7 +159,7 @@ class CirrusService {
     String? serial,
   }) async {
     final uploadEndpointPath = _joinPaths('/api/v1/cirrus/upload', uploadPath);
-    final endpointUri = Uri.parse(_apiBaseUrl).resolve(uploadEndpointPath);
+    final endpointUri = _apiBaseUri.resolve(uploadEndpointPath);
 
     final serialValue = serial?.trim() ?? '';
     final uri = serialValue.isEmpty
@@ -199,9 +211,7 @@ class CirrusService {
       querySegments.add('serial=${Uri.encodeQueryComponent(serialValue)}');
     }
 
-    final endpointUri = Uri.parse(
-      _apiBaseUrl,
-    ).resolve('/api/v1/cirrus/download');
+    final endpointUri = _apiBaseUri.resolve('/api/v1/cirrus/download');
     return endpointUri.replace(query: querySegments.join('&'));
   }
 
