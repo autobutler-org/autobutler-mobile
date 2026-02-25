@@ -1,6 +1,9 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:autobutler/models/cirrus_file_node.dart';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 import 'package:http/http.dart' as http;
 
 class CirrusService {
@@ -9,172 +12,7 @@ class CirrusService {
     defaultValue: 'http://localhost:8080',
   );
 
-  static const List<CirrusFileNode> _mockNodes = [
-    CirrusFileNode(
-      name: 'flipped_(1).jpg',
-      size: 6501171,
-      isDir: false,
-      deviceName: 'Data',
-      devicePath: '/flipped_(1).jpg',
-      fullPath: '/flipped_(1).jpg',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'flipped_(2).jpg',
-      size: 6501171,
-      isDir: false,
-      deviceName: 'Data',
-      devicePath: '/flipped_(2).jpg',
-      fullPath: '/flipped_(2).jpg',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'flipped_(3).jpg',
-      size: 6501171,
-      isDir: false,
-      deviceName: 'Data',
-      devicePath: '/flipped_(3).jpg',
-      fullPath: '/flipped_(3).jpg',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'flipped_(4).jpg',
-      size: 6501171,
-      isDir: false,
-      deviceName: 'Data',
-      devicePath: '/flipped_(4).jpg',
-      fullPath: '/flipped_(4).jpg',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'flipped_(5).jpg',
-      size: 6501171,
-      isDir: false,
-      deviceName: 'Data',
-      devicePath: '/flipped_(5).jpg',
-      fullPath: '/flipped_(5).jpg',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'flipped_(6).jpg',
-      size: 6501171,
-      isDir: false,
-      deviceName: 'Data',
-      devicePath: '/flipped_(6).jpg',
-      fullPath: '/flipped_(6).jpg',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'flipped_(7).jpg',
-      size: 6501171,
-      isDir: false,
-      deviceName: 'Data',
-      devicePath: '/flipped_(7).jpg',
-      fullPath: '/flipped_(7).jpg',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'Google_Data_autobutler.org@gmail.com_1769933022.zip',
-      size: 43315,
-      isDir: false,
-      deviceName: 'Data',
-      devicePath: '/Google_Data_autobutler.org@gmail.com_1769933022.zip',
-      fullPath: '/Google_Data_autobutler.org@gmail.com_1769933022.zip',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'project-assets',
-      size: 0,
-      isDir: true,
-      deviceName: 'Data',
-      devicePath: '/project-assets',
-      fullPath: '/project-assets',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'screenshots',
-      size: 0,
-      isDir: true,
-      deviceName: 'Data',
-      devicePath: '/project-assets/screenshots',
-      fullPath: '/project-assets/screenshots',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'changelog.md',
-      size: 5320,
-      isDir: false,
-      deviceName: 'Data',
-      devicePath: '/project-assets/changelog.md',
-      fullPath: '/project-assets/changelog.md',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'capture-001.png',
-      size: 384201,
-      isDir: false,
-      deviceName: 'Data',
-      devicePath: '/project-assets/screenshots/capture-001.png',
-      fullPath: '/project-assets/screenshots/capture-001.png',
-      deviceSerial: '',
-    ),
-    CirrusFileNode(
-      name: 'diag-report.txt',
-      size: 8142,
-      isDir: false,
-      deviceName: 'Backup',
-      devicePath: '/diag-report.txt',
-      fullPath: '/diag-report.txt',
-      deviceSerial: 'BACKUP-01',
-    ),
-  ];
-
   static Future<List<CirrusFileNode>> getFiles(
-    String path, {
-    bool useMockData = true,
-    List<String>? serials,
-  }) async {
-    if (!useMockData) {
-      return _getFilesFromApi(path, serials: serials);
-    }
-
-    await Future<void>.delayed(const Duration(milliseconds: 120));
-
-    final normalizedPath = _normalizePath(path);
-    final serialFilter = serials
-        ?.where((serial) => serial.trim().isNotEmpty)
-        .toSet();
-
-    return _mockNodes
-        .where((node) {
-          final parentPath = _parentDirectory(node.fullPath);
-          if (parentPath != normalizedPath) {
-            return false;
-          }
-
-          if (serialFilter == null || serialFilter.isEmpty) {
-            return true;
-          }
-
-          return serialFilter.contains(node.deviceSerial);
-        })
-        .toList(growable: false);
-  }
-
-  static String _parentDirectory(String path) {
-    final normalized = _normalizePath(path);
-    if (normalized.isEmpty) {
-      return '';
-    }
-
-    final lastSlash = normalized.lastIndexOf('/');
-    if (lastSlash <= 0) {
-      return '';
-    }
-    return normalized.substring(0, lastSlash);
-  }
-
-  static Future<List<CirrusFileNode>> _getFilesFromApi(
     String path, {
     List<String>? serials,
   }) async {
@@ -217,6 +55,216 @@ class CirrusService {
         .toList(growable: false);
   }
 
+  static Future<void> deleteFile(
+    String rootDir,
+    String fileName, {
+    String? deviceSerial,
+  }) async {
+    final querySegments = <String>[
+      'rootDir=${Uri.encodeQueryComponent(rootDir)}',
+      'filePaths=${Uri.encodeQueryComponent(fileName)}',
+    ];
+    final serial = deviceSerial?.trim() ?? '';
+    if (serial.isNotEmpty) {
+      querySegments.add('serial=${Uri.encodeQueryComponent(serial)}');
+    }
+
+    final endpointUri = Uri.parse(_apiBaseUrl).resolve('/api/v1/cirrus');
+    final uri = endpointUri.replace(query: querySegments.join('&'));
+
+    final response = await http.delete(uri);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to delete file (${response.statusCode})');
+    }
+  }
+
+  static Future<void> moveFile(
+    String oldPath,
+    String newPath, {
+    String? oldDeviceSerial,
+    String? newDeviceSerial,
+  }) async {
+    final endpointUri = Uri.parse(_apiBaseUrl).resolve('/api/v1/cirrus');
+    final requestBody = <String, String>{
+      'oldFilePath': oldPath,
+      'newFilePath': newPath,
+    };
+
+    final oldSerial = oldDeviceSerial?.trim() ?? '';
+    if (oldSerial.isNotEmpty) {
+      requestBody['oldDeviceSerial'] = oldSerial;
+    }
+
+    final newSerial = newDeviceSerial?.trim() ?? '';
+    if (newSerial.isNotEmpty) {
+      requestBody['newDeviceSerial'] = newSerial;
+    }
+
+    final body = jsonEncode(requestBody);
+
+    final response = await http.put(
+      endpointUri,
+      headers: const {'Content-Type': 'application/json'},
+      body: body,
+    );
+
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to move file (${response.statusCode})');
+    }
+  }
+
+  static Future<void> createFolder(String folderPath, String folderName) async {
+    final trimmedFolderPath = folderPath.trim();
+    final endpointPath = trimmedFolderPath.isEmpty
+        ? '/api/v1/cirrus/folder/'
+        : _joinPaths('/api/v1/cirrus/folder', trimmedFolderPath);
+    final endpointUri = Uri.parse(_apiBaseUrl).resolve(endpointPath);
+
+    final request = http.MultipartRequest('POST', endpointUri);
+    request.fields['folderName'] = folderName;
+
+    final response = await request.send();
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to create folder (${response.statusCode})');
+    }
+  }
+
+  static Future<http.StreamedResponse> uploadFiles(
+    String uploadPath,
+    List<File> files, {
+    String? serial,
+  }) async {
+    final formDataFiles = await Future.wait(
+      files.map((file) => http.MultipartFile.fromPath('files', file.path)),
+    );
+
+    return uploadFilesFromFormData(uploadPath, formDataFiles, serial: serial);
+  }
+
+  static Future<http.StreamedResponse> uploadFilesFromFormData(
+    String uploadPath,
+    List<http.MultipartFile> formDataFiles, {
+    String? serial,
+  }) async {
+    final uploadEndpointPath = _joinPaths('/api/v1/cirrus/upload', uploadPath);
+    final endpointUri = Uri.parse(_apiBaseUrl).resolve(uploadEndpointPath);
+
+    final serialValue = serial?.trim() ?? '';
+    final uri = serialValue.isEmpty
+        ? endpointUri
+        : endpointUri.replace(queryParameters: {'serial': serialValue});
+
+    final request = http.MultipartRequest('POST', uri);
+    request.files.addAll(formDataFiles);
+
+    final response = await request.send();
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to upload files (${response.statusCode})');
+    }
+
+    return response;
+  }
+
+  static Future<String?> downloadFile(
+    String filePath, {
+    String? serial,
+    String? fileName,
+  }) async {
+    final uri = _buildDownloadUri(filePath, serial: serial);
+    final response = await http.get(uri);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw Exception('Failed to download file (${response.statusCode})');
+    }
+
+    final resolvedName = _resolveDownloadFileName(
+      response.headers['content-disposition'],
+      preferredName: fileName,
+      fallbackPath: filePath,
+    );
+
+    final params = SaveFileDialogParams(
+      data: Uint8List.fromList(response.bodyBytes),
+      fileName: resolvedName,
+    );
+    return FlutterFileDialog.saveFile(params: params);
+  }
+
+  static Uri _buildDownloadUri(String filePath, {String? serial}) {
+    final querySegments = <String>[
+      'filePath=${Uri.encodeQueryComponent(filePath)}',
+    ];
+
+    final serialValue = serial?.trim() ?? '';
+    if (serialValue.isNotEmpty) {
+      querySegments.add('serial=${Uri.encodeQueryComponent(serialValue)}');
+    }
+
+    final endpointUri = Uri.parse(
+      _apiBaseUrl,
+    ).resolve('/api/v1/cirrus/download');
+    return endpointUri.replace(query: querySegments.join('&'));
+  }
+
+  static String _resolveDownloadFileName(
+    String? contentDisposition, {
+    String? preferredName,
+    required String fallbackPath,
+  }) {
+    final explicitName = preferredName?.trim() ?? '';
+    if (explicitName.isNotEmpty) {
+      return explicitName;
+    }
+
+    final extractedName = _extractFileNameFromContentDisposition(
+      contentDisposition,
+    );
+    if (extractedName != null && extractedName.isNotEmpty) {
+      return extractedName;
+    }
+
+    final normalized = fallbackPath.trim();
+    if (normalized.isEmpty) {
+      return 'download';
+    }
+
+    final withoutTrailing = normalized.endsWith('/')
+        ? normalized.substring(0, normalized.length - 1)
+        : normalized;
+    if (withoutTrailing.isEmpty) {
+      return 'download';
+    }
+
+    final lastSlash = withoutTrailing.lastIndexOf('/');
+    if (lastSlash < 0 || lastSlash == withoutTrailing.length - 1) {
+      return withoutTrailing;
+    }
+    return withoutTrailing.substring(lastSlash + 1);
+  }
+
+  static String? _extractFileNameFromContentDisposition(String? headerValue) {
+    if (headerValue == null || headerValue.trim().isEmpty) {
+      return null;
+    }
+
+    final utf8Match = RegExp(
+      r"filename\*=UTF-8''([^;]+)",
+      caseSensitive: false,
+    ).firstMatch(headerValue);
+    if (utf8Match != null) {
+      return Uri.decodeFull(utf8Match.group(1) ?? '').replaceAll('"', '');
+    }
+
+    final basicMatch = RegExp(
+      r'filename="?([^";]+)"?',
+      caseSensitive: false,
+    ).firstMatch(headerValue);
+    if (basicMatch != null) {
+      return basicMatch.group(1)?.trim();
+    }
+
+    return null;
+  }
+
   static String _normalizePath(String path) {
     final trimmed = path.trim();
     if (trimmed.isEmpty || trimmed == '/') {
@@ -235,5 +283,21 @@ class CirrusService {
       return '';
     }
     return normalizedPath.substring(1);
+  }
+
+  static String _joinPaths(String basePath, String appendPath) {
+    final normalizedBase = basePath.endsWith('/')
+        ? basePath.substring(0, basePath.length - 1)
+        : basePath;
+    final normalizedAppend = appendPath.trim();
+
+    if (normalizedAppend.isEmpty) {
+      return normalizedBase;
+    }
+
+    final strippedAppend = normalizedAppend.startsWith('/')
+        ? normalizedAppend.substring(1)
+        : normalizedAppend;
+    return '$normalizedBase/$strippedAppend';
   }
 }

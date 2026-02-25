@@ -1,7 +1,11 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:autobutler/models/cirrus_file_node.dart';
 import 'package:autobutler/services/cirrus_service.dart';
+import 'dart:io';
+import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 void main() {
   runApp(const AutobutlerApp());
@@ -37,8 +41,9 @@ class FileBrowserPage extends StatefulWidget {
 
 class _FileBrowserPageState extends State<FileBrowserPage> {
   late Future<List<CirrusFileNode>> _filesFuture;
-  bool _useMockData = true;
   String _currentPath = '';
+  bool _isUploading = false;
+  bool _isCreatingFolder = false;
 
   @override
   void initState() {
@@ -47,10 +52,457 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   void _reloadFiles() {
-    _filesFuture = CirrusService.getFiles(
-      _currentPath,
-      useMockData: _useMockData,
+    _filesFuture = CirrusService.getFiles(_currentPath);
+  }
+
+  void _refreshFiles() {
+    setState(() {
+      _reloadFiles();
+    });
+  }
+
+  Future<void> _handleUploadPressed() async {
+    if (_isUploading) {
+      return;
+    }
+
+    final selectedPath = await FlutterFileDialog.pickFile(
+      params: const OpenFileDialogParams(copyFileToCacheDir: true),
     );
+    if (selectedPath == null || selectedPath.isEmpty) {
+      return;
+    }
+    final selectedFile = File(selectedPath);
+
+    setState(() {
+      _isUploading = true;
+    });
+
+    try {
+      await CirrusService.uploadFiles(_toRootDir(_currentPath), [selectedFile]);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _reloadFiles();
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Uploaded ${selectedFile.uri.pathSegments.last}'),
+        ),
+      );
+    } on MissingPluginException {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'File picker plugin not available. Fully restart the app.',
+          ),
+        ),
+      );
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Upload failed')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _handleCreateFolderPressed() async {
+    if (_isCreatingFolder) {
+      return;
+    }
+
+    final folderName = await _promptForFolderName();
+    if (folderName == null) {
+      return;
+    }
+
+    setState(() {
+      _isCreatingFolder = true;
+    });
+
+    try {
+      await CirrusService.createFolder(_toRootDir(_currentPath), folderName);
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _reloadFiles();
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Created folder $folderName')));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Failed to create folder')));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isCreatingFolder = false;
+        });
+      }
+    }
+  }
+
+  Future<String?> _promptForFolderName() async {
+    final nameController = TextEditingController();
+    final platform = Theme.of(context).platform;
+    final isCupertinoPlatform =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+
+    final String? value;
+    if (isCupertinoPlatform) {
+      value = await showCupertinoDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return CupertinoAlertDialog(
+            title: const Text('New Folder'),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: CupertinoTextField(
+                controller: nameController,
+                autofocus: true,
+                placeholder: 'Folder name',
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  Navigator.of(dialogContext).pop(nameController.text.trim());
+                },
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(nameController.text.trim());
+                },
+                child: const Text('Create'),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      value = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('New Folder'),
+            content: TextField(
+              controller: nameController,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'Folder name'),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                Navigator.of(dialogContext).pop(nameController.text.trim());
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(nameController.text.trim());
+                },
+                child: const Text('Create'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    nameController.dispose();
+
+    final normalized = value?.trim() ?? '';
+    if (normalized.isEmpty) {
+      return null;
+    }
+
+    return normalized.replaceAll(RegExp(r'^/+|/+$'), '');
+  }
+
+  Future<void> _handleFileMenuAction(
+    CirrusFileNode node,
+    _FileMenuAction action,
+  ) async {
+    switch (action) {
+      case _FileMenuAction.download:
+        await _handleDownload(node);
+        break;
+      case _FileMenuAction.moveRename:
+        await _handleMoveRename(node);
+        break;
+      case _FileMenuAction.delete:
+        await _handleDelete(node);
+        break;
+    }
+  }
+
+  Future<void> _handleDownload(CirrusFileNode node) async {
+    try {
+      final filePath = _toRootDir(
+        _joinPath(_currentPath, _trimTrailingSlashes(node.name)),
+      );
+      final savedPath = await CirrusService.downloadFile(
+        filePath,
+        serial: _serialOrNull(node),
+        fileName: _trimTrailingSlashes(node.name),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      final message = savedPath == null
+          ? 'Download canceled'
+          : 'Downloaded ${_trimTrailingSlashes(node.name)}';
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(message)));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Download failed')));
+    }
+  }
+
+  Future<void> _handleMoveRename(CirrusFileNode node) async {
+    final currentItemPath = _joinPath(
+      _currentPath,
+      _trimTrailingSlashes(node.name),
+    );
+    final targetInput = await _promptForMoveRenamePath();
+    if (targetInput == null) {
+      return;
+    }
+
+    final oldPath = currentItemPath;
+    final targetPath = targetInput.startsWith('/')
+        ? _normalizePath(targetInput)
+        : _joinPath(_currentPath, targetInput);
+
+    if (targetPath.isEmpty || targetPath == oldPath) {
+      return;
+    }
+
+    try {
+      final serial = _serialOrNull(node);
+      await CirrusService.moveFile(
+        oldPath,
+        targetPath,
+        oldDeviceSerial: serial,
+        newDeviceSerial: serial,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _reloadFiles();
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Move/Rename complete')));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Move/Rename failed')));
+    }
+  }
+
+  Future<void> _handleDelete(CirrusFileNode node) async {
+    final shouldDelete = await _confirmDelete(node);
+    if (shouldDelete != true) {
+      return;
+    }
+
+    try {
+      final rootDir = _toRootDir(_currentPath);
+      await CirrusService.deleteFile(
+        rootDir,
+        _trimTrailingSlashes(node.name),
+        deviceSerial: _serialOrNull(node),
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _reloadFiles();
+      });
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Deleted')));
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Delete failed')));
+    }
+  }
+
+  Future<String?> _promptForMoveRenamePath() async {
+    final pathController = TextEditingController();
+    final platform = Theme.of(context).platform;
+    final isCupertinoPlatform =
+        platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
+
+    final String? value;
+    if (isCupertinoPlatform) {
+      value = await showCupertinoDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return CupertinoAlertDialog(
+            title: const Text('Move / Rename'),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: CupertinoTextField(
+                controller: pathController,
+                autofocus: true,
+                placeholder: 'New name or path',
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  Navigator.of(dialogContext).pop(pathController.text.trim());
+                },
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(pathController.text.trim());
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      value = await showDialog<String>(
+        context: context,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: const Text('Move / Rename'),
+            content: TextField(
+              controller: pathController,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'New name or path'),
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) {
+                Navigator.of(dialogContext).pop(pathController.text.trim());
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(pathController.text.trim());
+                },
+                child: const Text('Save'),
+              ),
+            ],
+          );
+        },
+      );
+    }
+
+    pathController.dispose();
+
+    final normalized = (value ?? '').trim();
+    if (normalized.isEmpty) {
+      return null;
+    }
+
+    return normalized;
+  }
+
+  Future<bool?> _confirmDelete(CirrusFileNode node) {
+    final itemName = _trimTrailingSlashes(node.name);
+    return showAdaptiveDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog.adaptive(
+          title: const Text('Delete'),
+          content: Text('Delete $itemName?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  static String _trimTrailingSlashes(String value) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return trimmed;
+    }
+    return trimmed.replaceFirst(RegExp(r'/+$'), '');
+  }
+
+  static String? _serialOrNull(CirrusFileNode node) {
+    final serial = node.deviceSerial.trim();
+    if (serial.isEmpty) {
+      return null;
+    }
+    return serial;
   }
 
   void _openDirectory(CirrusFileNode node) {
@@ -123,6 +575,15 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     return normalized.substring(0, lastSlash);
   }
 
+  static String _toRootDir(String path) {
+    final normalized = _normalizePath(path);
+    if (normalized.isEmpty) {
+      return '';
+    }
+
+    return normalized.substring(1);
+  }
+
   List<Widget> _buildBreadcrumbs(BuildContext context) {
     final style = Theme.of(context).textTheme.titleMedium;
     if (_currentPath.isEmpty) {
@@ -186,7 +647,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Photos'),
+        title: const Text('Cirrus'),
         actions: [
           IconButton(onPressed: () {}, icon: const Icon(Icons.search)),
           IconButton(
@@ -202,15 +663,23 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
             child: Row(
               children: [
                 FilledButton.tonalIcon(
-                  onPressed: () {},
+                  onPressed: _isUploading ? null : _handleUploadPressed,
                   icon: const Icon(Icons.upload_rounded),
-                  label: const Text('Upload'),
+                  label: Text(_isUploading ? 'Uploading...' : 'Upload'),
                 ),
                 const SizedBox(width: 8),
                 OutlinedButton.icon(
-                  onPressed: () {},
+                  onPressed: _isCreatingFolder
+                      ? null
+                      : _handleCreateFolderPressed,
                   icon: const Icon(Icons.create_new_folder_outlined),
-                  label: const Text('New Folder'),
+                  label: Text(_isCreatingFolder ? 'Creating...' : 'New Folder'),
+                ),
+                const Spacer(),
+                IconButton(
+                  onPressed: _refreshFiles,
+                  icon: const Icon(Icons.refresh_rounded),
+                  tooltip: 'Refresh files',
                 ),
               ],
             ),
@@ -247,22 +716,6 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                 ),
               ],
             ),
-          ),
-          CheckboxListTile(
-            value: _useMockData,
-            controlAffinity: ListTileControlAffinity.leading,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-            title: const Text('Use mock data'),
-            onChanged: (value) {
-              if (value == null) {
-                return;
-              }
-
-              setState(() {
-                _useMockData = value;
-                _reloadFiles();
-              });
-            },
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -331,7 +784,25 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
                           ),
                         ],
                       ),
-                      trailing: const Icon(Icons.more_vert),
+                      trailing: PopupMenuButton<_FileMenuAction>(
+                        icon: const Icon(Icons.more_vert),
+                        onSelected: (action) =>
+                            _handleFileMenuAction(item, action),
+                        itemBuilder: (context) => const [
+                          PopupMenuItem<_FileMenuAction>(
+                            value: _FileMenuAction.download,
+                            child: Text('Download'),
+                          ),
+                          PopupMenuItem<_FileMenuAction>(
+                            value: _FileMenuAction.moveRename,
+                            child: Text('Move/Rename'),
+                          ),
+                          PopupMenuItem<_FileMenuAction>(
+                            value: _FileMenuAction.delete,
+                            child: Text('Delete'),
+                          ),
+                        ],
+                      ),
                       onTap: () => _openDirectory(item),
                     );
                   },
@@ -385,3 +856,5 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
   }
 }
+
+enum _FileMenuAction { download, moveRename, delete }
