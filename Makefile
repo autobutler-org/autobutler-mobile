@@ -122,6 +122,9 @@ test: test/unit ## Run tests
 test/unit: ## Run unit tests
 	flutter test
 
+upgrade: ## Upgrade dependencies
+	flutter pub upgrade
+
 ##@ Code quality
 
 check: check/format/dart check/lint/dart ## Check code
