@@ -85,7 +85,7 @@ build/ios: ## Build iOS app
 	flutter build ios --debug --no-codesign
 
 clean: ## Clean build artifacts
-	flutter pub clean
+	flutter clean
 
 emulate: ## Emulate mobile device
 ifeq ($(UNAME_S),Linux)
