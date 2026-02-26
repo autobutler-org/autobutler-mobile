@@ -71,75 +71,79 @@ Future<String?> _promptForText({
       platform == TargetPlatform.iOS || platform == TargetPlatform.macOS;
 
   final String? value;
-  if (isCupertinoPlatform) {
-    value = await showCupertinoDialog<String>(
-      context: context,
-      useRootNavigator: true,
-      builder: (dialogContext) {
-        return CupertinoAlertDialog(
-          title: Text(title),
-          content: Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: CupertinoTextField(
+  try {
+    if (isCupertinoPlatform) {
+      value = await showCupertinoDialog<String>(
+        context: context,
+        useRootNavigator: true,
+        builder: (dialogContext) {
+          return CupertinoAlertDialog(
+            title: Text(title),
+            content: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: CupertinoTextField(
+                controller: textController,
+                autofocus: true,
+                placeholder: hintText,
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) {
+                  Navigator.of(dialogContext).pop(textController.text.trim());
+                },
+              ),
+            ),
+            actions: [
+              CupertinoDialogAction(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              CupertinoDialogAction(
+                isDefaultAction: true,
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(textController.text.trim());
+                },
+                child: Text(confirmLabel),
+              ),
+            ],
+          );
+        },
+      );
+    } else {
+      value = await showDialog<String>(
+        context: context,
+        useRootNavigator: true,
+        builder: (dialogContext) {
+          return AlertDialog(
+            title: Text(title),
+            content: TextField(
               controller: textController,
               autofocus: true,
-              placeholder: hintText,
+              decoration: InputDecoration(hintText: hintText),
               textInputAction: TextInputAction.done,
               onSubmitted: (_) {
                 Navigator.of(dialogContext).pop(textController.text.trim());
               },
             ),
-          ),
-          actions: [
-            CupertinoDialogAction(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              onPressed: () {
-                Navigator.of(dialogContext).pop(textController.text.trim());
-              },
-              child: Text(confirmLabel),
-            ),
-          ],
-        );
-      },
-    );
-  } else {
-    value = await showDialog<String>(
-      context: context,
-      useRootNavigator: true,
-      builder: (dialogContext) {
-        return AlertDialog(
-          title: Text(title),
-          content: TextField(
-            controller: textController,
-            autofocus: true,
-            decoration: InputDecoration(hintText: hintText),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (_) {
-              Navigator.of(dialogContext).pop(textController.text.trim());
-            },
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(dialogContext).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop(textController.text.trim());
-              },
-              child: Text(confirmLabel),
-            ),
-          ],
-        );
-      },
-    );
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(dialogContext).pop(),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                onPressed: () {
+                  Navigator.of(dialogContext).pop(textController.text.trim());
+                },
+                child: Text(confirmLabel),
+              ),
+            ],
+          );
+        },
+      );
+    }
+  } finally {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      textController.dispose();
+    });
   }
-
-  textController.dispose();
 
   final normalized = (value ?? '').trim();
   if (normalized.isEmpty) {

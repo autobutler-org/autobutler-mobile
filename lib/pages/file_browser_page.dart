@@ -33,7 +33,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     _filesFuture = _controller.fetchFiles(_currentPath);
   }
 
-  void _refreshFiles() {
+  void _refreshFileState() {
     setState(() {
       _reloadFiles();
     });
@@ -63,9 +63,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         return;
       }
 
-      setState(() {
-        _reloadFiles();
-      });
+      _refreshFileState();
 
       _showMessage('Uploaded ${selectedFile.uri.pathSegments.last}');
     } on MissingPluginException {
@@ -113,9 +111,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         return;
       }
 
-      setState(() {
-        _reloadFiles();
-      });
+      _refreshFileState();
 
       _showMessage('Created folder $folderName');
     } catch (_) {
@@ -151,7 +147,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
 
       if (action == FileMenuAction.moveRename) {
         if (outcome.shouldRefresh) {
-          _refreshFiles();
+          _refreshFileState();
         }
         return;
       }
@@ -171,23 +167,19 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   void _applyOutcome(FileMenuActionOutcome outcome) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
+    if (!mounted) {
+      return;
+    }
 
-      if (outcome.shouldRefresh) {
-        setState(() {
-          _reloadFiles();
-        });
-      }
+    if (outcome.shouldRefresh) {
+      _refreshFileState();
+    }
 
-      final messenger = ScaffoldMessenger.maybeOf(context);
-      if (messenger != null) {
-        messenger.hideCurrentSnackBar();
-        messenger.showSnackBar(SnackBar(content: Text(outcome.message)));
-      }
-    });
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger != null) {
+      messenger.hideCurrentSnackBar();
+      messenger.showSnackBar(SnackBar(content: Text(outcome.message)));
+    }
   }
 
   void _openDirectory(CirrusFileNode node) {
@@ -249,7 +241,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
             isCreatingFolder: _isCreatingFolder,
             onUploadPressed: _handleUploadPressed,
             onCreateFolderPressed: _handleCreateFolderPressed,
-            onRefreshPressed: _refreshFiles,
+            onRefreshPressed: _refreshFileState,
           ),
           FileBreadcrumbBar(
             currentPath: _currentPath,
