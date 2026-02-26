@@ -1,9 +1,5 @@
-import 'dart:io';
-
+import 'package:autobutler/controllers/file_browser_controller.dart';
 import 'package:autobutler/models/cirrus_file_node.dart';
-import 'package:autobutler/services/file_browser_actions.dart';
-import 'package:autobutler/services/cirrus_service.dart';
-import 'package:autobutler/utils/file_browser_dialogs.dart';
 import 'package:autobutler/utils/file_browser_path_utils.dart';
 import 'package:autobutler/widgets/file_browser/file_actions_bar.dart';
 import 'package:autobutler/widgets/file_browser/file_breadcrumb_bar.dart';
@@ -11,7 +7,6 @@ import 'package:autobutler/widgets/file_browser/file_list_header.dart';
 import 'package:autobutler/widgets/file_browser/file_list_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_file_dialog/flutter_file_dialog.dart';
 
 class FileBrowserPage extends StatefulWidget {
   const FileBrowserPage({super.key});
@@ -21,6 +16,8 @@ class FileBrowserPage extends StatefulWidget {
 }
 
 class _FileBrowserPageState extends State<FileBrowserPage> {
+  final _controller = const FileBrowserController();
+
   late Future<List<CirrusFileNode>> _filesFuture;
   String _currentPath = '';
   bool _isUploading = false;
@@ -33,7 +30,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
   }
 
   void _reloadFiles() {
-    _filesFuture = CirrusService.getFiles(_currentPath);
+    _filesFuture = _controller.fetchFiles(_currentPath);
   }
 
   void _refreshFiles() {
@@ -47,20 +44,17 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       return;
     }
 
-    final selectedPath = await FlutterFileDialog.pickFile(
-      params: const OpenFileDialogParams(copyFileToCacheDir: true),
-    );
-    if (selectedPath == null || selectedPath.isEmpty) {
+    final selectedFile = await _controller.pickUploadFile();
+    if (selectedFile == null) {
       return;
     }
-    final selectedFile = File(selectedPath);
 
     setState(() {
       _isUploading = true;
     });
 
     try {
-      await uploadFileToCurrentPath(
+      await _controller.uploadFile(
         currentPath: _currentPath,
         selectedFile: selectedFile,
       );
@@ -73,31 +67,19 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         _reloadFiles();
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Uploaded ${selectedFile.uri.pathSegments.last}'),
-        ),
-      );
+      _showMessage('Uploaded ${selectedFile.uri.pathSegments.last}');
     } on MissingPluginException {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'File picker plugin not available. Fully restart the app.',
-          ),
-        ),
-      );
+      _showMessage('File picker plugin not available. Fully restart the app.');
     } catch (_) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Upload failed')));
+      _showMessage('Upload failed');
     } finally {
       if (mounted) {
         setState(() {
@@ -112,7 +94,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       return;
     }
 
-    final folderName = await promptForFolderName(context);
+    final folderName = await _controller.promptFolderName(context);
     if (folderName == null) {
       return;
     }
@@ -122,7 +104,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     });
 
     try {
-      await createFolderAtCurrentPath(
+      await _controller.createFolder(
         currentPath: _currentPath,
         folderName: folderName,
       );
@@ -135,17 +117,13 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         _reloadFiles();
       });
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Created folder $folderName')));
+      _showMessage('Created folder $folderName');
     } catch (_) {
       if (!mounted) {
         return;
       }
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Failed to create folder')));
+      _showMessage('Failed to create folder');
     } finally {
       if (mounted) {
         setState(() {
@@ -159,120 +137,46 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
     CirrusFileNode node,
     FileMenuAction action,
   ) async {
-    switch (action) {
-      case FileMenuAction.download:
-        await _handleDownload(node);
-        break;
-      case FileMenuAction.moveRename:
-        await _handleMoveRename(node);
-        break;
-      case FileMenuAction.delete:
-        await _handleDelete(node);
-        break;
-    }
-  }
-
-  Future<void> _handleDownload(CirrusFileNode node) async {
     try {
-      final savedPath = await downloadNode(
+      final outcome = await _controller.handleFileAction(
         currentPath: _currentPath,
         node: node,
+        action: action,
+        context: context,
       );
 
-      if (!mounted) {
+      if (!mounted || outcome == null) {
         return;
       }
 
-      final message = savedPath == null
-          ? 'Download canceled'
-          : 'Downloaded ${trimTrailingSlashes(node.name)}';
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(message)));
+      _applyOutcome(outcome);
     } catch (_) {
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Download failed')));
+
+      _showMessage(_controller.failureMessage(action));
     }
   }
 
-  Future<void> _handleMoveRename(CirrusFileNode node) async {
-    final targetInput = await promptForMoveRenamePath(context);
-    if (targetInput == null) {
-      return;
-    }
-
-    final oldPath = joinPath(_currentPath, trimTrailingSlashes(node.name));
-    final targetPath = targetInput.startsWith('/')
-        ? normalizePath(targetInput)
-        : joinPath(_currentPath, targetInput);
-
-    if (targetPath.isEmpty || targetPath == oldPath) {
-      return;
-    }
-
-    try {
-      await moveRenameNode(
-        currentPath: _currentPath,
-        node: node,
-        targetInput: targetInput,
-      );
-
+  void _applyOutcome(FileMenuActionOutcome outcome) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
 
-      setState(() {
-        _reloadFiles();
-      });
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Move/Rename complete')));
-    } catch (_) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Move/Rename failed')));
-    }
-  }
-
-  Future<void> _handleDelete(CirrusFileNode node) async {
-    final shouldDelete = await confirmDelete(
-      context,
-      trimTrailingSlashes(node.name),
-    );
-    if (shouldDelete != true) {
-      return;
-    }
-
-    try {
-      await deleteNode(currentPath: _currentPath, node: node);
-
-      if (!mounted) {
-        return;
+      if (outcome.shouldRefresh) {
+        setState(() {
+          _reloadFiles();
+        });
       }
 
-      setState(() {
-        _reloadFiles();
-      });
-
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Deleted')));
-    } catch (_) {
-      if (!mounted) {
-        return;
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger != null) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(SnackBar(content: Text(outcome.message)));
       }
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Delete failed')));
-    }
+    });
   }
 
   void _openDirectory(CirrusFileNode node) {
@@ -280,7 +184,12 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       return;
     }
 
-    _setPath(joinPath(_currentPath, node.name));
+    _setPath(
+      _controller.nextPathForOpenDirectory(
+        currentPath: _currentPath,
+        node: node,
+      ),
+    );
   }
 
   void _goUpOneLevel() {
@@ -288,7 +197,7 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       return;
     }
 
-    _setPath(parentPath(_currentPath));
+    _setPath(_controller.nextPathForGoUp(_currentPath));
   }
 
   void _setPath(String path) {
@@ -301,6 +210,12 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
       _currentPath = normalized;
       _reloadFiles();
     });
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override

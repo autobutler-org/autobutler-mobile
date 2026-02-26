@@ -26,9 +26,15 @@ Future<String?> promptForMoveRenamePath(BuildContext context) {
   );
 }
 
-Future<bool?> confirmDelete(BuildContext context, String itemName) {
+Future<bool?> confirmDelete(BuildContext context, String itemName) async {
+  await Future<void>.delayed(Duration.zero);
+  if (!context.mounted) {
+    return null;
+  }
+
   return showAdaptiveDialog<bool>(
     context: context,
+    useRootNavigator: true,
     builder: (dialogContext) {
       return AlertDialog.adaptive(
         title: const Text('Delete'),
@@ -54,6 +60,11 @@ Future<String?> _promptForText({
   required String hintText,
   required String confirmLabel,
 }) async {
+  await Future<void>.delayed(Duration.zero);
+  if (!context.mounted) {
+    return null;
+  }
+
   final textController = TextEditingController();
   final platform = Theme.of(context).platform;
   final isCupertinoPlatform =
@@ -63,6 +74,7 @@ Future<String?> _promptForText({
   if (isCupertinoPlatform) {
     value = await showCupertinoDialog<String>(
       context: context,
+      useRootNavigator: true,
       builder: (dialogContext) {
         return CupertinoAlertDialog(
           title: Text(title),
@@ -97,6 +109,7 @@ Future<String?> _promptForText({
   } else {
     value = await showDialog<String>(
       context: context,
+      useRootNavigator: true,
       builder: (dialogContext) {
         return AlertDialog(
           title: Text(title),
