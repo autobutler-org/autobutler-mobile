@@ -75,23 +75,20 @@ class FileListView extends StatelessWidget {
                 itemBuilder: (context) => [
                   PopupMenuItem<FileMenuAction>(
                     value: FileMenuAction.download,
-                    onTap: () => _dispatchMenuAction(
-                      item,
-                      FileMenuAction.download,
-                    ),
+                    onTap: () =>
+                        _dispatchMenuAction(item, FileMenuAction.download),
                     child: Text('Download'),
                   ),
                   PopupMenuItem<FileMenuAction>(
                     value: FileMenuAction.moveRename,
-                    onTap: () => _dispatchMenuAction(
-                      item,
-                      FileMenuAction.moveRename,
-                    ),
+                    onTap: () =>
+                        _dispatchMenuAction(item, FileMenuAction.moveRename),
                     child: Text('Move/Rename'),
                   ),
                   PopupMenuItem<FileMenuAction>(
                     value: FileMenuAction.delete,
-                    onTap: () => _dispatchMenuAction(item, FileMenuAction.delete),
+                    onTap: () =>
+                        _dispatchMenuAction(item, FileMenuAction.delete),
                     child: Text('Delete'),
                   ),
                 ],
