@@ -149,9 +149,20 @@ class _FileBrowserPageState extends State<FileBrowserPage> {
         return;
       }
 
+      if (action == FileMenuAction.moveRename) {
+        if (outcome.shouldRefresh) {
+          _refreshFiles();
+        }
+        return;
+      }
+
       _applyOutcome(outcome);
     } catch (_) {
       if (!mounted) {
+        return;
+      }
+
+      if (action == FileMenuAction.moveRename) {
         return;
       }
 

@@ -15,6 +15,12 @@ class FileListView extends StatelessWidget {
   final Future<void> Function(CirrusFileNode, FileMenuAction) onFileMenuAction;
   final void Function(CirrusFileNode) onOpenDirectory;
 
+  void _dispatchMenuAction(CirrusFileNode item, FileMenuAction action) {
+    Future<void>.delayed(Duration.zero, () async {
+      await onFileMenuAction(item, action);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
@@ -66,18 +72,26 @@ class FileListView extends StatelessWidget {
               ),
               trailing: PopupMenuButton<FileMenuAction>(
                 icon: const Icon(Icons.more_vert),
-                onSelected: (action) => onFileMenuAction(item, action),
-                itemBuilder: (context) => const [
+                itemBuilder: (context) => [
                   PopupMenuItem<FileMenuAction>(
                     value: FileMenuAction.download,
+                    onTap: () => _dispatchMenuAction(
+                      item,
+                      FileMenuAction.download,
+                    ),
                     child: Text('Download'),
                   ),
                   PopupMenuItem<FileMenuAction>(
                     value: FileMenuAction.moveRename,
+                    onTap: () => _dispatchMenuAction(
+                      item,
+                      FileMenuAction.moveRename,
+                    ),
                     child: Text('Move/Rename'),
                   ),
                   PopupMenuItem<FileMenuAction>(
                     value: FileMenuAction.delete,
+                    onTap: () => _dispatchMenuAction(item, FileMenuAction.delete),
                     child: Text('Delete'),
                   ),
                 ],
